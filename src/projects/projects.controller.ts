@@ -8,7 +8,7 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
-  @MessagePattern('createProject')
+  @MessagePattern('projects.create')
   create(@Payload() createProjectDto: CreateProjectDto) {
     return this.projectsService.create(createProjectDto);
   }
