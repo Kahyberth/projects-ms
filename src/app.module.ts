@@ -5,6 +5,17 @@ import { ProjectsService } from './projects/projects.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { envs } from './config/envs';
 import { Project } from './projects/entities/project.entity';
+import { ProductBacklogModule } from './product-backlog/product-backlog.module';
+import { SprintBacklogModule } from './sprint-backlog/sprint-backlog.module';
+import { IncidentsModule } from './incidents/incidents.module';
+import { Comments } from './incidents/entities/comments.entity';
+import { Epic } from './incidents/entities/epic.entity';
+import { Incident } from './incidents/entities/incident.entity';
+import { ProductBacklog } from './product-backlog/entities/product-backlog.entity';
+import { Members } from './projects/entities/members.entity';
+import { Sprint } from './sprint-backlog/entities/sprint.entity';
+import { SprintBacklog } from './sprint-backlog/entities/sprint.backlog.entity';
+import { SprintLogging } from './sprint-backlog/entities/sprint.logging.entity';
 
 @Module({
   controllers: [],
@@ -18,12 +29,15 @@ import { Project } from './projects/entities/project.entity';
       username: envs.DB_USERNAME,
       password: envs.DB_PASSWORD,
       database: envs.DB_NAME,
-      entities: [Project],
+      entities: [Project, Comments, Epic, Incident, ProductBacklog, Members, Sprint, SprintBacklog, SprintLogging],
       synchronize: true,
       extra: {
         ssl: true
       },
     }),
+    ProductBacklogModule,
+    SprintBacklogModule,
+    IncidentsModule,
   ],
 })
 export class AppModule {}
