@@ -1,29 +1,66 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Epic } from 'src/incidents/entities/epic.entity';
+import { ProductBacklog } from 'src/product-backlog/entities/product-backlog.entity';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  OneToMany,
+  OneToOne,
+  JoinColumn,
+} from 'typeorm';
+import { Members } from './members.entity';
+import { Sprint } from 'src/sprint-backlog/entities/sprint.entity';
+import { SprintLogging } from 'src/sprint-backlog/entities/sprint.logging.entity';
 
 @Entity({ name: 'projects' })
 export class Project {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'varchar', length: 255 })
   name: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', length: 255 })
   description: string;
 
-  @Column({ type: 'timestamp', name: 'start_date', nullable: true })
-  startDate: Date;
+  @Column({
+    type: 'enum',
+    enum: ['completed', 'in-progress', 'on-hold'],
+    default: 'in-progress',
+  })
+  status: string;
 
-  @Column({ type: 'timestamp', name: 'end_date', nullable: true })
-  endDate: Date;
+  @Column({ type: 'varchar', length: 255 })
+  createdBy: string;
 
-  @Column({ type: 'boolean', default: true })
-  isActive: boolean;
+  @Column({ type: 'bool', default: true })
+  is_available: boolean;
 
-  @Column({ type: 'timestamp', name: 'created_at', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ type: 'varchar', length: 255 })
+  team_id: string;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
-  @Column({ type: 'timestamp', name: 'updated_at', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   updatedAt: Date;
-}
 
+  @Column({ type: 'timestamp', nullable: true })
+  deletedAt: Date;
+
+  @OneToMany(() => Epic, (epic) => epic.project)
+  epic: Epic[];
+
+  @OneToOne(() => ProductBacklog)
+  @JoinColumn()
+  backlog: ProductBacklog;
+
+  @OneToMany(() => Members, (members) => members.project)
+  members: Members[];
+
+  @OneToMany(() => Sprint, (sprint) => sprint.project)
+  sprint: Sprint[];
+
+  @OneToMany(() => SprintLogging, (sprint_logging) => sprint_logging.project)
+  logging: SprintLogging[];
+}
