@@ -40,8 +40,8 @@ export class Incident {
 
   @Column({
     type: 'enum',
-    enum: ['bug', 'feature', 'task', 'refactor'],
-    default: 'feature',
+    enum: ['bug', 'feature', 'task', 'refactor', 'user_story'],
+    default: 'user_story',
   })
   type: string;
 
