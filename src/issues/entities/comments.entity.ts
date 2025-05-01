@@ -4,7 +4,7 @@ import {
     PrimaryGeneratedColumn,
     ManyToOne,
   } from 'typeorm';
-import { Incident } from './incident.entity';
+import { Issue } from './issue.entity';
 import { Epic } from './epic.entity';
   
   @Entity()
@@ -24,8 +24,8 @@ import { Epic } from './epic.entity';
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     updatedAt: Date;
   
-    @ManyToOne(() => Incident, (incident) => incident.comments, { onDelete: 'CASCADE' })
-    incident: Incident;
+    @ManyToOne(() => Issue, (issue) => issue.comments, { onDelete: 'CASCADE' })
+    issue: Issue;
 
     @ManyToOne(() => Epic, (epic) => epic.comments)
     epic: Epic;

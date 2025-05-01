@@ -1,4 +1,4 @@
-import { Epic } from 'src/incidents/entities/epic.entity';
+import { Epic } from 'src/issues/entities/epic.entity';
 import { ProductBacklog } from 'src/product-backlog/entities/product-backlog.entity';
 import {
   Entity,

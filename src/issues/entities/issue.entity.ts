@@ -12,9 +12,9 @@ import { SprintBacklog } from 'src/sprint-backlog/entities/sprint.backlog.entity
 import { SprintLogging } from 'src/sprint-backlog/entities/sprint.logging.entity';
 
 @Entity({
-  name: 'incidents',
+  name: 'issues',
 })
-export class Incident {
+export class Issue {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -49,7 +49,7 @@ export class Incident {
   acceptanceCriteria: string;
 
   @Column({ type: 'integer', nullable: true })
-  story_points: number;
+  story_points: number | null;
 
   @Column({ type: 'varchar', length: 255 })
   createdBy: string;
@@ -72,18 +72,18 @@ export class Incident {
   @Column({ type: 'timestamp', nullable: true })
   finishedAt: Date | null;
 
-  @OneToMany(() => Comments, (comment) => comment.incident)
+  @OneToMany(() => Comments, (comment) => comment.issue)
   comments: Comments[];
 
-  @OneToMany(() => ProductBacklog, (product) => product.incident)
+  @OneToMany(() => ProductBacklog, (product) => product.issue)
   product_backlog: ProductBacklog[];
 
-  @ManyToOne(() => Epic, (epic) => epic.incident)
+  @ManyToOne(() => Epic, (epic) => epic.issue)
   epic: Epic;
 
-  @OneToMany(() => SprintBacklog, (sprint_backlog) => sprint_backlog.incident)
+  @OneToMany(() => SprintBacklog, (sprint_backlog) => sprint_backlog.issue)
   sprint_backlog: SprintBacklog[];
 
-  @OneToMany(()=> SprintLogging, (sprint_logging)=> sprint_logging.incident)
+  @OneToMany(()=> SprintLogging, (sprint_logging)=> sprint_logging.issue)
   logging: SprintLogging[];
 }
