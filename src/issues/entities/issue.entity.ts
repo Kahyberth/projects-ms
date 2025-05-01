@@ -76,7 +76,7 @@ export class Issue {
   comments: Comments[];
 
   @OneToMany(() => ProductBacklog, (product) => product.issue)
-  product_backlog: ProductBacklog[];
+  product_backlog: ProductBacklog;
 
   @ManyToOne(() => Epic, (epic) => epic.issue)
   epic: Epic;

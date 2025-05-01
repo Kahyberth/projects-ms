@@ -23,7 +23,7 @@ export class issuesService {
    */
   async create(createIssueDto: CreateIssueDto): Promise<Issue> {
     console.log('entraaaa')
-    const { createdBy, projectId, assignedTo = createdBy } = createIssueDto;
+    const { createdBy, product_backlog, assignedTo = createdBy } = createIssueDto;
 
     try {
       // Verificación de usuarios en paralelo
@@ -56,6 +56,7 @@ export class issuesService {
         isDeleted: false,
         createdAt: new Date(),
         updatedAt: new Date(),
+        product_backlog: product_backlog,
       });
 
       return await this.issueRepository.save(newIssue);

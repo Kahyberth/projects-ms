@@ -1,5 +1,6 @@
 import { IsString, IsEnum, IsOptional, IsInt, Min, Max, IsBoolean } from 'class-validator';
-
+import { ProductBacklog } from 'src/product-backlog/entities/product-backlog.entity';
+import { Type } from 'class-transformer';
 export enum Priority {
   LOW = 'low',
   MEDIUM = 'medium',
@@ -62,6 +63,6 @@ export class CreateIssueDto {
   @IsOptional()
   isDeleted?: boolean;
 
-  @IsString()
-  projectId: string;
+  @Type(() => ProductBacklog)
+  product_backlog: ProductBacklog;
 }
