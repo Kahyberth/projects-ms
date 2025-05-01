@@ -1,4 +1,4 @@
-import { Incident } from 'src/incidents/entities/incident.entity';
+import { Issue } from 'src/issues/entities/issue.entity';
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
@@ -12,6 +12,6 @@ export class ProductBacklog {
   @Column({ type: 'timestamp', nullable: true })
   updated_date: string;
 
-  @ManyToOne(() => Incident, (incident) => incident.product_backlog)
-  incident: Incident;
+  @ManyToOne(() => Issue, (issue) => issue.product_backlog)
+  issue: Issue;
 }

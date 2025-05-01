@@ -6,7 +6,7 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { Incident } from './incident.entity';
+import { Issue } from './issue.entity';
 import { Comments } from './comments.entity';
 import { SprintLogging } from 'src/sprint-backlog/entities/sprint.logging.entity';
 
@@ -31,8 +31,8 @@ export class Epic {
   @ManyToOne(() => Project, (project) => project.epic)
   project: Project;
 
-  @OneToMany(() => Incident, (incident) => incident.epic)
-  incident: Incident[];
+  @OneToMany(() => Issue, (issue) => issue.epic)
+  issue: Issue[];
 
   @OneToMany(() => Comments, (comments) => comments.epic)
   comments: Comments[];

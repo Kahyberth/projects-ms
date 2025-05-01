@@ -1,8 +1,8 @@
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Sprint } from './sprint.entity';
-import { Epic } from 'src/incidents/entities/epic.entity';
+import { Epic } from 'src/issues/entities/epic.entity';
 import { Project } from 'src/projects/entities/project.entity';
-import { Incident } from 'src/incidents/entities/incident.entity';
+import { Issue } from 'src/issues/entities/issue.entity';
 
 @Entity()
 export class SprintLogging {
@@ -24,8 +24,8 @@ export class SprintLogging {
   @ManyToOne(() => Epic, (epic) => epic.logging)
   epic: Epic;
 
-  @ManyToOne(() => Incident, (incident) => incident.logging)
-  incident: Incident;
+  @ManyToOne(() => Issue, (issue) => issue.logging)
+  issue: Issue;
 
   @ManyToOne(() => Project, (project) => project.logging)
   project: Project;
