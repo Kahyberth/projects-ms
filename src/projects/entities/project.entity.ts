@@ -20,8 +20,8 @@ export class Project {
   @Column({ type: 'varchar', length: 255 })
   name: string;
 
-  @Column({ type: 'varchar', length: 255 })
-  description: string;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  description?: string;
 
   @Column({
     type: 'enum',
