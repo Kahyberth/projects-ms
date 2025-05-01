@@ -16,10 +16,11 @@ import { Members } from './projects/entities/members.entity';
 import { Sprint } from './sprint-backlog/entities/sprint.entity';
 import { SprintBacklog } from './sprint-backlog/entities/sprint.backlog.entity';
 import { SprintLogging } from './sprint-backlog/entities/sprint.logging.entity';
+import { SendInvitationService } from './send-invitation/send-invitation.service';
 
 @Module({
   controllers: [],
-  providers: [],
+  providers: [SendInvitationService],
   imports: [
     ProjectsModule,
     TypeOrmModule.forRoot({

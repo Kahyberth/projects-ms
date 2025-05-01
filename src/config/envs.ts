@@ -10,6 +10,9 @@ interface EnvVars {
   DB_USERNAME: string;
   DB_PASSWORD: string;
   DB_NAME: string;
+  MAIL_USERNAME: string;
+  MAIL_PASSWORD: string;
+  MAIL_HOST: string;
 }
 
 const envsSchema = joi
@@ -21,6 +24,9 @@ const envsSchema = joi
     DB_USERNAME: joi.string().required(),
     DB_PASSWORD: joi.string().required(),
     DB_NAME: joi.string().required(),
+    MAIL_USERNAME: joi.string().required(),
+    MAIL_PASSWORD: joi.string().required(),
+    MAIL_HOST: joi.string().required(),
   })
   .unknown(true);
 
@@ -42,4 +48,7 @@ export const envs = {
   DB_USERNAME: envVars.DB_USERNAME,
   DB_PASSWORD: envVars.DB_PASSWORD,
   DB_NAME: envVars.DB_NAME,
+  MAIL_USERNAME: envVars.MAIL_USERNAME,
+  MAIL_PASSWORD: envVars.MAIL_PASSWORD,
+  MAIL_HOST: envVars.MAIL_HOST,
 };

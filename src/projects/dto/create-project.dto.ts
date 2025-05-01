@@ -1,13 +1,21 @@
-import { IsString, IsOptional, IsDate} from 'class-validator';
+import { IsString, IsOptional, IsDate, IsArray } from 'class-validator';
 export class CreateProjectDto {
   @IsString()
   name: string;
+
   @IsString()
+  @IsOptional()
   description: string;
-  @IsOptional()
-  @IsDate()
-  startDate: Date;
-  @IsOptional()
-  @IsDate()
-  endDate: Date;
+
+  @IsString()
+  created_by: string;
+
+  @IsString()
+  team_id: string;
+
+  @IsString({
+    each: true,
+  })
+  @IsArray()
+  members: string[];
 }
