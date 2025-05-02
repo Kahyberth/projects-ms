@@ -30,6 +30,15 @@ export class Project {
   })
   status: string;
 
+  @Column({
+    type: 'varchar',
+    length: 50,
+    nullable: false,
+    enum: ['SCRUM', 'KANBAN'],
+    default: 'SCRUM',
+  })
+  type: string;
+
   @Column({ type: 'varchar', length: 255 })
   createdBy: string;
 
@@ -38,6 +47,12 @@ export class Project {
 
   @Column({ type: 'varchar', length: 255 })
   team_id: string;
+
+  @Column({ type: 'varchar', length: 50 })
+  project_key: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  tags?: string[];
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;

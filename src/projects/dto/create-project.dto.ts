@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsDate, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsEnum } from 'class-validator';
 export class CreateProjectDto {
   @IsString()
   name: string;
@@ -13,9 +13,22 @@ export class CreateProjectDto {
   @IsString()
   team_id: string;
 
+
   @IsString({
     each: true,
   })
   @IsArray()
-  members: string[];
+  @IsOptional()
+  tags?: string[];
+
+  @IsString()
+  @IsEnum(['SCRUM', 'KANBAN'])
+  type: string;
+
+  @IsString({
+    each: true,
+  })
+  @IsArray()
+  @IsOptional()
+  members?: string[];
 }

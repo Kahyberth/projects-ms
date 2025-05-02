@@ -21,4 +21,9 @@ export class ProjectsController {
   findAllProjects() {
     return this.projectsService.getAllProjects();
   }
+
+  @MessagePattern('projects.findOne.project')
+  findOneProject(@Payload() id: string) {
+    return this.projectsService.findProjectById(id);
+  }
 }
