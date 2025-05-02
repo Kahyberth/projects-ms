@@ -46,6 +46,9 @@ export class ProjectsService {
         description: dto.description,
         createdBy: dto.created_by,
         team_id: dto.team_id,
+        tags: dto.tags || [dto.type],
+        type: dto.type,
+        project_key: dto.name.slice(0, 3).toUpperCase(),
         is_available: true,
       });
 
@@ -78,25 +81,27 @@ export class ProjectsService {
         this.findTeamById(dto.team_id),
       ]);
 
-      const invitations = await Promise.all(
-        dto.members.map(async (userId) => {
-          const user = await this.findUserById(userId);
-          const payload = {
-            host: lead_user.name,
-            invitedEmail: user.email,
-            invitedName: user.name,
-            projectName: savedProject.name,
-            projectId: savedProject.id,
-            teamName: team.name,
-            link: 'http://localhost:5173/dashboard/projects',
-          };
-          return this.sendInvitationService.viewProjectInvitation(payload);
-        }),
-      );
+      if (dto.members && dto.members.length > 0) {
+        const invitations = await Promise.all(
+          dto.members.map(async (userId) => {
+            const user = await this.findUserById(userId);
+            const payload = {
+              host: lead_user.name,
+              invitedEmail: user.email,
+              invitedName: user.name,
+              projectName: savedProject.name,
+              projectId: savedProject.id,
+              teamName: team.name,
+              link: 'http://localhost:5173/dashboard/projects',
+            };
+            return this.sendInvitationService.viewProjectInvitation(payload);
+          }),
+        );
 
-      this.logger.log(
-        `Project created: ${savedProject.name} with ${dto.members.length} members invited`,
-      );
+        this.logger.debug(
+          `Project created: ${savedProject.name} with ${dto.members.length} members invited`,
+        );
+      }
 
       return savedProject;
     } catch (error) {
@@ -135,7 +140,10 @@ export class ProjectsService {
    * @param teamId
    * @returns Promise<void>
    */
-  private async validateCreatorNotMember(userId: string, teamId: string): Promise<void> {
+  private async validateCreatorNotMember(
+    userId: string,
+    teamId: string,
+  ): Promise<void> {
     const existing = await this.membersRepository.findOne({
       where: { user_id: userId, project: { id: teamId } },
     });
@@ -211,6 +219,46 @@ export class ProjectsService {
         createdAt: 'DESC',
       },
     });
+  }
+
+  /**
+   * @async
+   * @author Kahyberth
+   * @description Gets all the Projects were created by a team
+   * @param team_id
+   * @returns Promise<Project[]>
+   */
+  async findProjectById(team_id: string): Promise<Project[]> {
+    const data = await this.projectRepository.find({
+      where: {
+        team_id,
+        is_available: true,
+      },
+      relations: ['members', 'epic', 'backlog', 'sprint', 'logging'],
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+
+    if (!data) {
+      throw new RpcException('Project not found or unavailable');
+    }
+
+    const user = await this.findUserById(data[0].createdBy);
+
+    if (!user) {
+      throw new RpcException('User not found');
+    }
+
+    console.log(user.name);
+
+
+    data.map((project) => {
+      project.createdBy = user.name + ' ' + user.lastName;
+      return project;
+    })
+
+    return data;
   }
 
   /**
