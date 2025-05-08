@@ -1,12 +1,17 @@
-import { IsString, IsEnum, IsOptional, IsInt, Min, Max, IsBoolean, IsUUID } from 'class-validator';
-import { ProductBacklog } from 'src/product-backlog/entities/product-backlog.entity';
-import { Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export enum Priority {
   LOW = 'low',
   MEDIUM = 'medium',
   HIGH = 'high',
-  CRITICAL = 'critical'
+  CRITICAL = 'critical',
 }
 
 export enum Status {
@@ -14,7 +19,7 @@ export enum Status {
   TODO = 'to-do',
   IN_PROGRESS = 'in-progress',
   RESOLVED = 'resolved',
-  CLOSED = 'closed'
+  CLOSED = 'closed',
 }
 
 export enum IssueType {
@@ -22,7 +27,7 @@ export enum IssueType {
   FEATURE = 'feature',
   TASK = 'task',
   REFACTOR = 'refactor',
-  USER_STORY = 'user_story'
+  USER_STORY = 'user_story',
 }
 
 export class CreateIssueDto {
@@ -63,11 +68,4 @@ export class CreateIssueDto {
   @IsBoolean()
   @IsOptional()
   isDeleted?: boolean;
-
-  @IsUUID()
-  productBacklogId: string;
-
-  @IsUUID()
-  @IsOptional()
-  epicId?: string;
 }

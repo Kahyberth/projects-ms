@@ -7,4 +7,6 @@ export class UpdateIssueDto extends PartialType(
 ) {
   @IsUUID()
   id: string;
+  newPriority: number;
+  issueId: string;
 }

@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { SprintBacklog } from './sprint.backlog.entity';
 import { SprintLogging } from './sprint.logging.entity';
+import { Issue } from 'src/issues/entities/issue.entity';
 
 @Entity()
 export class Sprint {
@@ -42,4 +43,7 @@ export class Sprint {
 
   @OneToMany(() => SprintLogging, (sprint_logging) => sprint_logging.sprint)
   logging: SprintLogging[];
+
+  @OneToMany(() => Issue, (issue) => issue.sprint)
+  issues: Issue[];
 }

@@ -1,16 +1,16 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Project } from './entities/project.entity';
-import { InjectRepository } from '@nestjs/typeorm';
-import { QueryRunner, Repository } from 'typeorm';
-import { CreateProjectDto } from './dto/create-project.dto';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
+import { InjectRepository } from '@nestjs/typeorm';
+import { catchError, firstValueFrom } from 'rxjs';
+import { Team } from 'src/interfaces/team.interface';
+import { User } from 'src/interfaces/user.interface';
+import { ProductBacklog } from 'src/product-backlog/entities/product-backlog.entity';
+import { SendInvitationService } from 'src/send-invitation/send-invitation.service';
+import { Repository } from 'typeorm';
+import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { Members } from './entities/members.entity';
-import { SendInvitationService } from 'src/send-invitation/send-invitation.service';
-import { catchError, firstValueFrom } from 'rxjs';
-import { User } from 'src/interfaces/user.interface';
-import { Team } from 'src/interfaces/team.interface';
-
+import { Project } from './entities/project.entity';
 @Injectable()
 export class ProjectsService {
   private readonly logger = new Logger(ProjectsService.name);
@@ -23,6 +23,8 @@ export class ProjectsService {
     private readonly sendInvitationService: SendInvitationService,
     @Inject('NATS_SERVICE')
     private readonly client: ClientProxy,
+    @InjectRepository(ProductBacklog)
+    private readonly productBacklogRepository: Repository<ProductBacklog>,
   ) {}
 
   /**
@@ -51,6 +53,14 @@ export class ProjectsService {
         project_key: dto.name.slice(0, 3).toUpperCase(),
         is_available: true,
       });
+
+      const productBacklog = this.productBacklogRepository.create({
+        created_date: new Date().toISOString(),
+        updated_date: new Date().toISOString(),
+      });
+      await this.productBacklogRepository.save(productBacklog);
+
+      project.backlog = productBacklog;
 
       const savedProject = await this.projectRepository.save(project);
 
@@ -252,11 +262,10 @@ export class ProjectsService {
 
     console.log(user.name);
 
-
     data.map((project) => {
       project.createdBy = user.name + ' ' + user.lastName;
       return project;
-    })
+    });
 
     return data;
   }
