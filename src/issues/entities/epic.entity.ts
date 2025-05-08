@@ -1,4 +1,4 @@
-import { Project } from 'src/projects/entities/project.entity';
+import { ProductBacklog } from 'src/product-backlog/entities/product-backlog.entity';
 import {
   Column,
   Entity,
@@ -7,7 +7,6 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Issue } from './issue.entity';
-import { Comments } from './comments.entity';
 import { SprintLogging } from 'src/sprint-backlog/entities/sprint.logging.entity';
 
 @Entity()
@@ -28,14 +27,17 @@ export class Epic {
   })
   status: string;
 
-  @ManyToOne(() => Project, (project) => project.epic)
-  project: Project;
+  @Column({ type: 'timestamp', nullable: true })
+  createdAt: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  updatedAt: Date;
+
+  @ManyToOne(() => ProductBacklog, (productBacklog) => productBacklog.epics)
+  productBacklog: ProductBacklog;
 
   @OneToMany(() => Issue, (issue) => issue.epic)
   issue: Issue[];
-
-  @OneToMany(() => Comments, (comments) => comments.epic)
-  comments: Comments[];
 
   @OneToMany(() => SprintLogging, (sprint_logging) => sprint_logging.epic)
   logging: SprintLogging[];

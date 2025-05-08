@@ -21,8 +21,8 @@ export class issuesController {
   }
 
   @MessagePattern('issue.update')
-  update(@Payload() data: { id: string; updateDto: UpdateIssueDto }) {
-    return this.issuesService.update(data.id, data.updateDto);
+  update(@Payload() updateIssueDto: UpdateIssueDto) {
+    return this.issuesService.update(updateIssueDto.id, updateIssueDto);
   }
 
   @MessagePattern('issue.remove')

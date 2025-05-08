@@ -63,9 +63,6 @@ export class Project {
   @Column({ type: 'timestamp', nullable: true })
   deletedAt: Date;
 
-  @OneToMany(() => Epic, (epic) => epic.project)
-  epic: Epic[];
-
   @OneToOne(() => ProductBacklog)
   @JoinColumn()
   backlog: ProductBacklog;
