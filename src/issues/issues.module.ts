@@ -7,6 +7,8 @@ import { Epic } from './entities/epic.entity';
 import { Issue } from './entities/issue.entity';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { envs } from 'src/config/envs';
+import { EpicsService } from './epics.service';
+import { EpicsController } from './epics.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Comments, Epic, Issue]),
@@ -20,8 +22,8 @@ import { envs } from 'src/config/envs';
       },
     ]),
   ],
-  controllers: [issuesController],
-  providers: [issuesService],
-  exports: [TypeOrmModule, issuesService],
+  controllers: [issuesController, EpicsController],
+  providers: [issuesService, EpicsService],
+  exports: [TypeOrmModule, issuesService, EpicsService],
 })
 export class issuesModule {}

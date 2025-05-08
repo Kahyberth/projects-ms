@@ -13,19 +13,14 @@ export class issuesController {
     return this.issuesService.create(createIssueDto);
   }
 
-  @MessagePattern('issue.find.all')
-  findAll() {
-    return this.issuesService.findAll();
-  }
-
   @MessagePattern('issue.find.one')
   findOne(@Payload() id: string) {
     return this.issuesService.findOne(id);
   }
 
   @MessagePattern('issue.update')
-  update(@Payload() data: { id: string, updateDto: UpdateIssueDto }) {
-    return this.issuesService.update(data.id, data.updateDto);
+  update(@Payload() updateIssueDto: UpdateIssueDto) {
+    return this.issuesService.update(updateIssueDto.id, updateIssueDto);
   }
 
   @MessagePattern('issue.remove')

@@ -26,8 +26,5 @@ import { Epic } from './epic.entity';
   
     @ManyToOne(() => Issue, (issue) => issue.comments, { onDelete: 'CASCADE' })
     issue: Issue;
-
-    @ManyToOne(() => Epic, (epic) => epic.comments)
-    epic: Epic;
   }
   

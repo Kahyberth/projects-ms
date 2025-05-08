@@ -1,6 +1,7 @@
-import { IsString, IsEnum, IsOptional, IsInt, Min, Max, IsBoolean } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsInt, Min, Max, IsBoolean, IsUUID } from 'class-validator';
 import { ProductBacklog } from 'src/product-backlog/entities/product-backlog.entity';
 import { Type } from 'class-transformer';
+
 export enum Priority {
   LOW = 'low',
   MEDIUM = 'medium',
@@ -52,10 +53,10 @@ export class CreateIssueDto {
   @IsOptional()
   story_points?: number | null;
 
-  @IsString()
+  @IsUUID()
   createdBy: string;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
   assignedTo: string;
 
@@ -63,6 +64,10 @@ export class CreateIssueDto {
   @IsOptional()
   isDeleted?: boolean;
 
-  @Type(() => ProductBacklog)
-  product_backlog: ProductBacklog;
+  @IsUUID()
+  productBacklogId: string;
+
+  @IsUUID()
+  @IsOptional()
+  epicId?: string;
 }

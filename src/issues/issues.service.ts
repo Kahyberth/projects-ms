@@ -5,7 +5,8 @@ import { Issue } from './entities/issue.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
-import { catchError, lastValueFrom, timeout } from 'rxjs';
+import { catchError, lastValueFrom, timeout, of } from 'rxjs';
+import { validate as validateUUID } from 'uuid';
 
 @Injectable()
 export class issuesService {
@@ -23,7 +24,7 @@ export class issuesService {
    */
   async create(createIssueDto: CreateIssueDto): Promise<Issue> {
     console.log('entraaaa')
-    const { createdBy, product_backlog, assignedTo = createdBy } = createIssueDto;
+    const { createdBy, productBacklogId, assignedTo = createdBy } = createIssueDto;
 
     try {
       // Verificación de usuarios en paralelo
@@ -56,7 +57,7 @@ export class issuesService {
         isDeleted: false,
         createdAt: new Date(),
         updatedAt: new Date(),
-        product_backlog: product_backlog,
+        product_backlog: { id: productBacklogId },
       });
 
       return await this.issueRepository.save(newIssue);
@@ -66,28 +67,15 @@ export class issuesService {
     }
   }
 
-  /**
-   * Read all issues
-   * @param payload
-   * @returns
-   */
-  async findAll(): Promise<Issue[]> {
-    try {
-      return await this.issueRepository.find({ 
-        where: { isDeleted: false },
-        order: { createdAt: 'DESC' }
-      });
-    } catch (error) {
-      this.logger.error('Error al obtener issues', error.stack);
-      throw new RpcException({
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: 'Error al obtener issues',
-      });
-    }
-  }
-
   async findOne(id: string): Promise<Issue> {
     try {
+      if (!validateUUID(id)) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'ID inválido',
+        });
+      }
+
       const issue = await this.issueRepository.findOne({ 
         where: { id, isDeleted: false } 
       });
@@ -101,7 +89,13 @@ export class issuesService {
       return issue;
     } catch (error) {
       this.logger.error(`Error al buscar issue ${id}`, error.stack);
-      throw error;
+      if (error instanceof RpcException) {
+        throw error;
+      }
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Error al buscar el issue',
+      });
     }
   }
   
@@ -205,52 +199,101 @@ export class issuesService {
     }
   }
 
-  async remove(id: string): Promise<Issue> {
+  async remove(id: string): Promise<{ message: string }> {
     try {
-      const issue = await this.findOne(id);
+      const issue = await this.issueRepository.findOne({ 
+        where: { id, isDeleted: false } 
+      });
+      
+      if (!issue) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: `Issue con ID ${id} no encontrado`,
+        });
+      }
+
       issue.isDeleted = true;
       issue.updatedAt = new Date();
-      return await this.issueRepository.save(issue);
+      await this.issueRepository.save(issue);
+      return { message: 'Issue successfully deleted' };
     } catch (error) {
       this.logger.error(`Error al eliminar issue ${id}`, error.stack);
-      throw error;
+      if (error instanceof RpcException) {
+        throw error;
+      }
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Error al eliminar el issue',
+      });
     }
   }
 
   private async verifyUser(userId: string): Promise<boolean> {
     try {
+      this.logger.debug(`Intentando verificar usuario ${userId}`);
+      
       const user = await lastValueFrom(
         this.client.send('auth.get.profile', userId).pipe(
           timeout(5000),
           catchError(error => {
-            this.logger.error(`Error verificando usuario ${userId}:`, error);
+            this.logger.error(`Error detallado verificando usuario ${userId}:`, {
+              error: error.message,
+              stack: error.stack,
+              name: error.name,
+              code: error.code
+            });
+            
+            if (error.name === 'TimeoutError') {
+              throw new RpcException({
+                status: HttpStatus.REQUEST_TIMEOUT,
+                message: 'Timeout al verificar usuario',
+              });
+            }
+            
+            // Si es un error de conexión NATS
+            if (error.code === 'ECONNREFUSED' || error.code === 'NATS_CONNECTION_ERROR') {
+              throw new RpcException({
+                status: HttpStatus.SERVICE_UNAVAILABLE,
+                message: 'Servicio de autenticación no disponible',
+              });
+            }
+
+            // Si el error es que el usuario no existe
+            if (error.code === 404 || error.message?.includes('Usuario no encontrado')) {
+              return of(false);
+            }
+            
             throw new RpcException({
               status: HttpStatus.INTERNAL_SERVER_ERROR,
-              message: 'Error al verificar usuario',
+              message: `Error al verificar usuario: ${error.message}`,
             });
           })
         )
       );
-      return !!user;
+      
+      if (!user) {
+        this.logger.warn(`Usuario ${userId} no encontrado`);
+        return false;
+      }
+      
+      this.logger.debug(`Usuario ${userId} verificado exitosamente`);
+      return true;
     } catch (error) {
-      this.logger.error(`Error en verifyUser para ${userId}`, error.stack);
-      return false;
+      this.logger.error(`Error en verifyUser para ${userId}:`, {
+        error: error.message,
+        stack: error.stack,
+        name: error.name,
+        code: error.code
+      });
+      
+      if (error instanceof RpcException) {
+        throw error;
+      }
+      
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: `Error al verificar usuario: ${error.message}`,
+      });
     }
-  }
-
-  private async verifyProjectMembership(projectId: string, userId: string): Promise<boolean> {
-    // TODO: Eliminar este mock cuando la parte de projects esté listo
-    this.logger.warn('⚠️ Usando mock de verificación de proyecto - Reemplazar cuando el servicio de projects esté disponible');
-    
-    // Implementación temporal:
-    // - Devuelve true por defecto para permitir el flujo
-    // - Registra en logs para identificar usos
-    return true;
-    
-    /* Implementación final (descomentar luego):
-    return lastValueFrom(
-      this.client.send('projects.verify_member', { projectId, userId })
-        .pipe(timeout(3000))
-    */
   }
 }
