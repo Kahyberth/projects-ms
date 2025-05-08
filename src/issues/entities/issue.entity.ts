@@ -1,15 +1,16 @@
+import { ProductBacklog } from 'src/product-backlog/entities/product-backlog.entity';
+import { SprintBacklog } from 'src/sprint-backlog/entities/sprint.backlog.entity';
+import { Sprint } from 'src/sprint-backlog/entities/sprint.entity';
+import { SprintLogging } from 'src/sprint-backlog/entities/sprint.logging.entity';
 import {
   Column,
   Entity,
-  PrimaryGeneratedColumn,
-  OneToMany,
   ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Comments } from './comments.entity';
-import { ProductBacklog } from 'src/product-backlog/entities/product-backlog.entity';
 import { Epic } from './epic.entity';
-import { SprintBacklog } from 'src/sprint-backlog/entities/sprint.backlog.entity';
-import { SprintLogging } from 'src/sprint-backlog/entities/sprint.logging.entity';
 
 @Entity({
   name: 'issues',
@@ -75,8 +76,10 @@ export class Issue {
   @OneToMany(() => Comments, (comment) => comment.issue)
   comments: Comments[];
 
-  @OneToMany(() => ProductBacklog, (product) => product.issue)
-  product_backlog: ProductBacklog;
+  @ManyToOne(() => ProductBacklog, (product) => product.issues, {
+    nullable: true,
+  })
+  product_backlog: ProductBacklog | null;
 
   @ManyToOne(() => Epic, (epic) => epic.issue)
   epic: Epic;
@@ -84,6 +87,9 @@ export class Issue {
   @OneToMany(() => SprintBacklog, (sprint_backlog) => sprint_backlog.issue)
   sprint_backlog: SprintBacklog[];
 
-  @OneToMany(()=> SprintLogging, (sprint_logging)=> sprint_logging.issue)
+  @OneToMany(() => SprintLogging, (sprint_logging) => sprint_logging.issue)
   logging: SprintLogging[];
+
+  @ManyToOne(() => Sprint, (sprint) => sprint.issues)
+  sprint: Sprint;
 }

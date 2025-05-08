@@ -1,35 +1,80 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
+import { CreateIssueDto } from 'src/issues/dto/create-issue.dto';
+import { UpdateIssueDto } from 'src/issues/dto/update-issue.dto';
+import { Issue } from 'src/issues/entities/issue.entity';
+import { ProductBacklog } from './entities/product-backlog.entity';
 import { ProductBacklogService } from './product-backlog.service';
-import { CreateProductBacklogDto } from './dto/create-product-backlog.dto';
-import { UpdateProductBacklogDto } from './dto/update-product-backlog.dto';
 
 @Controller()
 export class ProductBacklogController {
   constructor(private readonly productBacklogService: ProductBacklogService) {}
 
-  @MessagePattern('createProductBacklog')
-  create(@Payload() createProductBacklogDto: CreateProductBacklogDto) {
-    return this.productBacklogService.create(createProductBacklogDto);
+  @MessagePattern('product-backlog.getProductBacklog')
+  async getProductBacklog(
+    @Payload() payload: { id: string },
+  ): Promise<ProductBacklog> {
+    return this.productBacklogService.getProductBacklog(payload.id);
   }
 
-  @MessagePattern('findAllProductBacklog')
-  findAll() {
-    return this.productBacklogService.findAll();
+  @MessagePattern('product-backlog.addIssueToBacklog')
+  async addIssueToBacklog(
+    @Payload()
+    payload: {
+      createIssueDto: CreateIssueDto;
+      productBacklogId: string;
+    },
+  ): Promise<Issue> {
+    console.log(payload);
+    return this.productBacklogService.addIssueToBacklog(
+      payload.createIssueDto,
+      payload.productBacklogId,
+    );
   }
 
-  @MessagePattern('findOneProductBacklog')
-  findOne(@Payload() id: number) {
-    return this.productBacklogService.findOne(id);
+  @MessagePattern('product-backlog.getBacklogIssues')
+  async getBacklogIssues(
+    @Payload() payload: { backlogId: string; filters?: { status?: string } },
+  ): Promise<Issue[]> {
+    return this.productBacklogService.getBacklogIssues(
+      payload.backlogId,
+      payload.filters,
+    );
   }
 
-  @MessagePattern('updateProductBacklog')
-  update(@Payload() updateProductBacklogDto: UpdateProductBacklogDto) {
-    return this.productBacklogService.update(updateProductBacklogDto.id, updateProductBacklogDto);
+  @MessagePattern('product-backlog.updateIssueOrder')
+  async updateIssueOrder(@Payload() payload: UpdateIssueDto): Promise<Issue> {
+    return this.productBacklogService.updateIssueOrder(payload);
   }
 
-  @MessagePattern('removeProductBacklog')
-  remove(@Payload() id: number) {
-    return this.productBacklogService.remove(id);
+  @MessagePattern('product-backlog.searchIssues')
+  async searchIssues(
+    @Payload()
+    payload: {
+      backlogId: string;
+      criteria: { epicId?: string; type?: string };
+    },
+  ): Promise<Issue[]> {
+    return this.productBacklogService.searchIssues(
+      payload.backlogId,
+      payload.criteria,
+    );
+  }
+
+  @MessagePattern('product-backlog.moveIssueToSprint')
+  async moveIssueToSprint(
+    @Payload() payload: { issueId: string; sprintId: string },
+  ): Promise<Issue> {
+    return this.productBacklogService.moveIssueToSprint(
+      payload.issueId,
+      payload.sprintId,
+    );
+  }
+
+  @MessagePattern('product-backlog.removeIssueFromBacklog')
+  async removeIssueFromBacklog(
+    @Payload() payload: { issueId: string },
+  ): Promise<Issue> {
+    return this.productBacklogService.removeIssueFromBacklog(payload.issueId);
   }
 }

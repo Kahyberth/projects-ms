@@ -1,7 +1,5 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-import { issuesService } from './issues.service';
-import { CreateIssueDto } from './dto/create-issue.dto';
 import { UpdateIssueDto } from './dto/update-issue.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
@@ -10,9 +8,9 @@ import { UpdateCommentDto } from './dto/update-comment.dto';
 export class issuesController {
   constructor(private readonly issuesService: issuesService) {}
 
-  @MessagePattern('issue.create')
-  create(@Payload() createIssueDto: CreateIssueDto) {
-    return this.issuesService.create(createIssueDto);
+  @MessagePattern('issue.find.all')
+  findAll() {
+    return this.issuesService.findAll();
   }
 
   @MessagePattern('issue.find.one')
@@ -21,8 +19,8 @@ export class issuesController {
   }
 
   @MessagePattern('issue.update')
-  update(@Payload() updateIssueDto: UpdateIssueDto) {
-    return this.issuesService.update(updateIssueDto.id, updateIssueDto);
+  update(@Payload() data: { id: string; updateDto: UpdateIssueDto }) {
+    return this.issuesService.update(data.id, data.updateDto);
   }
 
   @MessagePattern('issue.remove')
