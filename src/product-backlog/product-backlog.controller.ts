@@ -12,9 +12,18 @@ export class ProductBacklogController {
 
   @MessagePattern('product-backlog.getProductBacklog')
   async getProductBacklog(
-    @Payload() payload: { id: string },
+    @Payload() payload: { backlogId: string },
   ): Promise<ProductBacklog> {
-    return this.productBacklogService.getProductBacklog(payload.id);
+    return this.productBacklogService.getProductBacklog(payload.backlogId);
+  }
+
+  @MessagePattern('product-backlog.getProductBacklogByProjectId')
+  async getProductBacklogByProjectId(
+    @Payload() payload: { projectId: string },
+  ): Promise<ProductBacklog> {
+    return this.productBacklogService.getProductBacklogByProjectId(
+      payload.projectId,
+    );
   }
 
   @MessagePattern('product-backlog.addIssueToBacklog')
@@ -36,6 +45,7 @@ export class ProductBacklogController {
   async getBacklogIssues(
     @Payload() payload: { backlogId: string; filters?: { status?: string } },
   ): Promise<Issue[]> {
+    console.log(payload);
     return this.productBacklogService.getBacklogIssues(
       payload.backlogId,
       payload.filters,

@@ -1,4 +1,5 @@
 import { ProductBacklog } from 'src/product-backlog/entities/product-backlog.entity';
+import { SprintLogging } from 'src/sprint-backlog/entities/sprint.logging.entity';
 import {
   Column,
   Entity,
@@ -7,7 +8,6 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Issue } from './issue.entity';
-import { SprintLogging } from 'src/sprint-backlog/entities/sprint.logging.entity';
 
 @Entity()
 export class Epic {

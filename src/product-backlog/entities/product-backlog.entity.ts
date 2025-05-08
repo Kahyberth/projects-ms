@@ -1,3 +1,4 @@
+import { Epic } from 'src/issues/entities/epic.entity';
 import { Issue } from 'src/issues/entities/issue.entity';
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 
@@ -11,6 +12,9 @@ export class ProductBacklog {
 
   @Column({ type: 'timestamp', nullable: true })
   updated_date: string;
+
+  @OneToMany(() => Epic, (epic) => epic.productBacklog)
+  epics: Epic[];
 
   @OneToMany(() => Issue, (issue) => issue.product_backlog)
   issues: Issue[];

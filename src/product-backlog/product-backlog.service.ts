@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CreateIssueDto } from 'src/issues/dto/create-issue.dto';
 import { UpdateIssueDto } from 'src/issues/dto/update-issue.dto';
 import { Issue } from 'src/issues/entities/issue.entity';
+import { Project } from 'src/projects/entities/project.entity';
 import { Sprint } from 'src/sprint-backlog/entities/sprint.entity';
 import { EntityManager, Repository } from 'typeorm';
 import { ProductBacklog } from './entities/product-backlog.entity';
@@ -19,6 +20,8 @@ export class ProductBacklogService {
     @InjectRepository(Sprint)
     private readonly sprintRepository: Repository<Sprint>,
     private readonly entityManager: EntityManager,
+    @InjectRepository(Project)
+    private readonly projectRepository: Repository<Project>,
   ) {}
 
   /**
@@ -253,5 +256,29 @@ export class ProductBacklogService {
       });
     }
     return productBacklog;
+  }
+
+  /**
+   * Obtiene un product backlog por su id de proyecto
+   * @param projectId id del proyecto
+   * @returns product backlog
+   */
+
+  async getProductBacklogByProjectId(
+    projectId: string,
+  ): Promise<ProductBacklog> {
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId },
+      relations: ['backlog'],
+    });
+
+    if (!project) {
+      throw new RpcException({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Project no encontrado',
+      });
+    }
+
+    return project.backlog;
   }
 }

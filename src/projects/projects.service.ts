@@ -244,7 +244,7 @@ export class ProjectsService {
         team_id,
         is_available: true,
       },
-      relations: ['members', 'epic', 'backlog', 'sprint', 'logging'],
+      relations: ['members', 'backlog', 'sprint', 'logging'],
       order: {
         createdAt: 'DESC',
       },
