@@ -40,6 +40,9 @@ import { SprintBacklogModule } from './sprint-backlog/sprint-backlog.module';
         SprintLogging,
       ],
       synchronize: true,
+      extra: {
+        ssl: true
+      },
     }),
     ProductBacklogModule,
     SprintBacklogModule,
