@@ -27,33 +27,64 @@ export class issuesService {
    * @param payload
    * @returns
    */
+  async create(createIssueDto: CreateIssueDto): Promise<Issue> {
+    console.log('entraaaa')
+    const { createdBy, productBacklogId, assignedTo = createdBy } = createIssueDto;
 
-  /**
-   * Read all issues
-   * @param payload
-   * @returns
-   */
-  async findAll(): Promise<Issue[]> {
     try {
-      return await this.issueRepository.find({
-        where: { isDeleted: false },
-        order: { createdAt: 'DESC' },
+      // Verificación de usuarios en paralelo
+      const [creatorExists, assigneeExists] = await Promise.all([
+        this.verifyUser(createdBy),
+        assignedTo !== createdBy ? this.verifyUser(assignedTo) : true,
+      ]);
+
+      if (!creatorExists) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: 'El usuario creador no existe',
+        });
+      }
+
+      if (!assigneeExists) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: 'El usuario asignado no existe',
+        });
+      }
+
+      const newIssue = this.issueRepository.create({
+        ...createIssueDto,
+        assignedTo,
+        status: createIssueDto.status || 'to-do',
+        priority: createIssueDto.priority || 'medium',
+        type: createIssueDto.type || 'user_story',
+        story_points: createIssueDto.story_points ?? null,
+        isDeleted: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        product_backlog: { id: productBacklogId },
       });
+
+      return await this.issueRepository.save(newIssue);
     } catch (error) {
-      this.logger.error('Error al obtener issues', error.stack);
-      throw new RpcException({
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: 'Error al obtener issues',
-      });
+      this.logger.error(`Error al crear issue: ${error.message}`, error.stack);
+      throw error;
     }
   }
 
   async findOne(id: string): Promise<Issue> {
     try {
-      const issue = await this.issueRepository.findOne({
-        where: { id, isDeleted: false },
-      });
+      if (!validateUUID(id)) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'ID inválido',
+        });
+      }
 
+      const issue = await this.issueRepository.findOne({ 
+        where: { id, isDeleted: false } 
+      });
+      
       if (!issue) {
         throw new RpcException({
           status: HttpStatus.NOT_FOUND,
@@ -72,7 +103,7 @@ export class issuesService {
       });
     }
   }
-
+  
   /**
    * Obtener issues asignados a un usuario
    * @param userId ID del usuario asignado
@@ -82,9 +113,9 @@ export class issuesService {
       const issues = await this.issueRepository.find({
         where: {
           assignedTo: userId,
-          isDeleted: false,
+          isDeleted: false
         },
-        order: { createdAt: 'DESC' },
+        order: { createdAt: 'DESC' }
       });
 
       if (issues.length === 0) {
@@ -96,22 +127,19 @@ export class issuesService {
 
       return issues;
     } catch (error) {
-      this.logger.error(
-        `Error al obtener issues del usuario ${userId}`,
-        error.stack,
-      );
-
+      this.logger.error(`Error al obtener issues del usuario ${userId}`, error.stack);
+      
       // Si ya es un RpcException, lo relanzamos
       if (error instanceof RpcException) {
         throw error;
       }
-
+      
       throw new RpcException({
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         message: 'Error al obtener issues del usuario',
       });
     }
-  }
+}
 
   /**
    * Obtener issues de un product backlog (sin filtros adicionales)
@@ -122,9 +150,9 @@ export class issuesService {
       const issues = await this.issueRepository.find({
         where: {
           product_backlog: { id: backlogId },
-          isDeleted: false,
+          isDeleted: false
         },
-        order: { createdAt: 'DESC' },
+        order: { createdAt: 'DESC' }
       });
 
       if (issues.length === 0) {
@@ -136,15 +164,12 @@ export class issuesService {
 
       return issues;
     } catch (error) {
-      this.logger.error(
-        `Error al obtener issues del backlog ${backlogId}`,
-        error.stack,
-      );
-
+      this.logger.error(`Error al obtener issues del backlog ${backlogId}`, error.stack);
+      
       if (error instanceof RpcException) {
         throw error;
       }
-
+      
       throw new RpcException({
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         message: 'Error al obtener issues del backlog',
@@ -169,7 +194,7 @@ export class issuesService {
       const updatedIssue = this.issueRepository.merge(issue, {
         ...updateIssueDto,
         updatedAt: new Date(),
-        assignedTo: updateIssueDto.assignedTo || issue.assignedTo,
+        assignedTo: updateIssueDto.assignedTo || issue.assignedTo
       });
 
       return await this.issueRepository.save(updatedIssue);
@@ -181,10 +206,10 @@ export class issuesService {
 
   async remove(id: string): Promise<{ message: string }> {
     try {
-      const issue = await this.issueRepository.findOne({
-        where: { id, isDeleted: false },
+      const issue = await this.issueRepository.findOne({ 
+        where: { id, isDeleted: false } 
       });
-
+      
       if (!issue) {
         throw new RpcException({
           status: HttpStatus.NOT_FOUND,

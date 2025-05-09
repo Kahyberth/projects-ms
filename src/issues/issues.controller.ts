@@ -1,5 +1,7 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
+import { issuesService } from './issues.service';
+import { CreateIssueDto } from './dto/create-issue.dto';
 import { UpdateIssueDto } from './dto/update-issue.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
@@ -8,9 +10,9 @@ import { UpdateCommentDto } from './dto/update-comment.dto';
 export class issuesController {
   constructor(private readonly issuesService: issuesService) {}
 
-  @MessagePattern('issue.find.all')
-  findAll() {
-    return this.issuesService.findAll();
+  @MessagePattern('issue.create')
+  create(@Payload() createIssueDto: CreateIssueDto) {
+    return this.issuesService.create(createIssueDto);
   }
 
   @MessagePattern('issue.find.one')
