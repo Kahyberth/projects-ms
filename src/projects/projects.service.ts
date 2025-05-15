@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
 import { catchError, firstValueFrom } from 'rxjs';
@@ -40,7 +40,20 @@ export class ProjectsService {
     await queryRunner.startTransaction();
 
     try {
-      await this.validateProjectName(dto.name);
+      // Validar equipo y usuario antes de crear el proyecto
+      const [team, lead_user] = await Promise.all([
+        this.findTeamById(dto.team_id),
+        this.findUserById(dto.created_by)
+      ]);
+
+      if (!team) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: 'Equipo no encontrado'
+        });
+      }
+
+      await this.validateProjectName(dto.name, dto.created_by);
       await this.validateCreatorNotMember(dto.created_by, dto.team_id);
 
       const project = this.projectRepository.create({
@@ -64,55 +77,52 @@ export class ProjectsService {
 
       const savedProject = await this.projectRepository.save(project);
 
-      const creatorMember = this.membersRepository.create({
-        user_id: dto.created_by,
-        project: savedProject,
-        joinedAt: new Date(),
-      });
-
-      await this.membersRepository.save(creatorMember);
-
-      if (dto.members && dto.members.length > 0) {
-        const additionalMembers = dto.members.map((userId) =>
+      // Crear array de todos los miembros (creador + miembros adicionales)
+      const allMembers = [
+        this.membersRepository.create({
+          user_id: dto.created_by,
+          project: savedProject,
+          joinedAt: new Date(),
+        }),
+        ...(dto.members?.map(userId => 
           this.membersRepository.create({
             user_id: userId,
             project: savedProject,
             joinedAt: new Date(),
-          }),
-        );
+          })
+        ) || [])
+      ];
 
-        await this.membersRepository.save(additionalMembers);
+      // Guardar todos los miembros en una sola operación
+      await this.membersRepository.save(allMembers);
+
+      // Enviar invitaciones si hay miembros adicionales
+      if (dto.members && dto.members.length > 0) {
+        const invitationPromises = dto.members.map(async (userId) => {
+          const user = await this.findUserById(userId);
+          const payload = {
+            host: lead_user.name,
+            invitedEmail: user.email,
+            invitedName: user.name,
+            projectName: savedProject.name,
+            projectId: savedProject.id,
+            teamName: team.name,
+            link: 'http://localhost:5173/dashboard/projects',
+          };
+          return this.sendInvitationService.viewProjectInvitation(payload);
+        });
+
+        await Promise.all(invitationPromises);
       }
 
+      // Hacer commit de la transacción después de que todas las operaciones se completen
       await queryRunner.commitTransaction();
 
-      const [lead_user, team] = await Promise.all([
-        this.findUserById(dto.created_by),
-        this.findTeamById(dto.team_id),
-      ]);
+      this.logger.debug(
+        `Project created: ${savedProject.name} with ${dto.members?.length || 0} members invited`,
+      );
 
-      if (dto.members && dto.members.length > 0) {
-        const invitations = await Promise.all(
-          dto.members.map(async (userId) => {
-            const user = await this.findUserById(userId);
-            const payload = {
-              host: lead_user.name,
-              invitedEmail: user.email,
-              invitedName: user.name,
-              projectName: savedProject.name,
-              projectId: savedProject.id,
-              teamName: team.name,
-              link: 'http://localhost:5173/dashboard/projects',
-            };
-            return this.sendInvitationService.viewProjectInvitation(payload);
-          }),
-        );
-
-        this.logger.debug(
-          `Project created: ${savedProject.name} with ${dto.members.length} members invited`,
-        );
-      }
-
+      console.log('llega hasta return');
       return savedProject;
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -131,14 +141,22 @@ export class ProjectsService {
    * @author Kahyberth
    * @description It is responsible for validating the project name
    * @param name
+   * @param createdBy
    * @returns Promise<void>
    */
-  private async validateProjectName(name: string) {
+  private async validateProjectName(name: string, createdBy: string) {
     const existing = await this.projectRepository.findOne({
-      where: { name, is_available: true },
+      where: { 
+        name, 
+        createdBy,
+        is_available: true 
+      },
     });
     if (existing) {
-      throw new RpcException('Project with this name already exists');
+      throw new RpcException({
+        status: HttpStatus.CONFLICT,
+        message: 'Ya tienes un proyecto con este nombre'
+      });
     }
   }
 
@@ -213,6 +231,40 @@ export class ProjectsService {
     return this.projectRepository.save(updatedProject);
   }
 
+
+  /**
+   * @async
+   * @description Gets all projects where the user is a member
+   * @param userId
+   * @returns Promise<Project[]>
+   */
+  async findProjectsByUser(userId: string): Promise<Project[]> {
+    try {
+      console.log('findProjectsByUser');
+      const projects = await this.projectRepository.find({
+        where: {
+          members: {
+            user_id: userId
+          },
+          is_available: true
+        },
+        order: {
+          createdAt: 'DESC'
+        }
+      });
+
+      console.log(projects);
+      return projects;
+    } catch (error) {
+      this.logger.error(`Error al buscar proyectos del usuario ${userId}:`, error.stack);
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Error al obtener los proyectos del usuario',
+      });
+    }
+  }
+
+  
   /**
    * @async
    * @author Kahyberth
@@ -220,15 +272,18 @@ export class ProjectsService {
    * @returns Promise<Project[]>
    */
   async getAllProjects(): Promise<Project[]> {
-    return await this.projectRepository.find({
+    console.log('getAllProjects');
+    const projects = await this.projectRepository.find({
       where: {
         is_available: true,
       },
-      relations: ['members', 'epic', 'backlog', 'sprint', 'logging'],
+      relations: ['members', 'backlog', 'sprint', 'logging'],
       order: {
         createdAt: 'DESC',
       },
     });
+    console.log(projects);
+    return projects;
   }
 
   /**
@@ -385,16 +440,33 @@ export class ProjectsService {
    * @returns
    */
   async getProjectById(projectId: string): Promise<Project> {
-    const project = await this.projectRepository.findOne({
-      where: { id: projectId, is_available: true },
-      relations: ['members', 'epic', 'backlog', 'sprint', 'logging'],
-    });
-
-    if (!project) {
-      throw new RpcException('Project not found or unavailable');
+    try {
+      console.log(`Intentando encontrar proyecto por ID: ${projectId}`);
+      
+      if (!projectId) {
+        console.error('ID de proyecto es nulo o vacío');
+        throw new RpcException('Project ID is required');
+      }
+      
+      const project = await this.projectRepository.findOne({
+        where: { id: projectId, is_available: true },
+        relations: ['members', 'backlog', 'sprint', 'logging'],
+      });
+  
+      console.log('Resultado de la búsqueda:', project ? 'Proyecto encontrado' : 'Proyecto no encontrado');
+  
+      if (!project) {
+        throw new RpcException('Project not found or unavailable');
+      }
+  
+      return project;
+    } catch (error) {
+      console.error(`Error al buscar proyecto por ID ${projectId}:`, error);
+      if (error instanceof RpcException) {
+        throw error;
+      }
+      throw new RpcException(`Error fetching project: ${error.message}`);
     }
-
-    return project;
   }
 
   /**

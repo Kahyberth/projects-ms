@@ -10,12 +10,6 @@ import { ProductBacklogService } from './product-backlog.service';
 export class ProductBacklogController {
   constructor(private readonly productBacklogService: ProductBacklogService) {}
 
-  @MessagePattern('product-backlog.getProductBacklog')
-  async getProductBacklog(
-    @Payload() payload: { backlogId: string },
-  ): Promise<ProductBacklog> {
-    return this.productBacklogService.getProductBacklog(payload.backlogId);
-  }
 
   @MessagePattern('product-backlog.getProductBacklogByProjectId')
   async getProductBacklogByProjectId(
@@ -26,20 +20,6 @@ export class ProductBacklogController {
     );
   }
 
-  @MessagePattern('product-backlog.addIssueToBacklog')
-  async addIssueToBacklog(
-    @Payload()
-    payload: {
-      createIssueDto: CreateIssueDto;
-      productBacklogId: string;
-    },
-  ): Promise<Issue> {
-    console.log(payload);
-    return this.productBacklogService.addIssueToBacklog(
-      payload.createIssueDto,
-      payload.productBacklogId,
-    );
-  }
 
   @MessagePattern('product-backlog.getBacklogIssues')
   async getBacklogIssues(
@@ -52,10 +32,6 @@ export class ProductBacklogController {
     );
   }
 
-  @MessagePattern('product-backlog.updateIssueOrder')
-  async updateIssueOrder(@Payload() payload: UpdateIssueDto): Promise<Issue> {
-    return this.productBacklogService.updateIssueOrder(payload);
-  }
 
   @MessagePattern('product-backlog.searchIssues')
   async searchIssues(

@@ -21,8 +21,8 @@ export class issuesController {
   }
 
   @MessagePattern('issue.update')
-  update(@Payload() data: { id: string; updateDto: UpdateIssueDto }) {
-    return this.issuesService.update(data.id, data.updateDto);
+  update(@Payload() updateDto: UpdateIssueDto) {
+    return this.issuesService.update(updateDto.id, updateDto, updateDto.userId);
   }
 
   @MessagePattern('issue.remove')
@@ -60,5 +60,10 @@ export class issuesController {
   @MessagePattern('issues.delete.comment')
   deleteComment(@Payload() commentId: string) {
     return this.issuesService.deleteComment(commentId);
+  }
+
+  @MessagePattern('issues.getLastIssueNumber')
+  async getLastIssueNumber(@Payload() payload: { projectId: string }) {
+    return this.issuesService.getLastIssueNumber(payload.projectId);
   }
 }

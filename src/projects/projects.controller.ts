@@ -1,6 +1,7 @@
 import { Controller } from '@nestjs/common';
-import { ProjectsService } from './projects.service';
 import { MessagePattern, Payload } from '@nestjs/microservices';
+import { ProjectsService } from './projects.service';
+import { Members } from './entities/members.entity';
 
 @Controller()
 export class ProjectsController {
@@ -19,11 +20,25 @@ export class ProjectsController {
 
   @MessagePattern('projects.findAll.project')
   findAllProjects() {
+    console.log('findAllProjects');
     return this.projectsService.getAllProjects();
   }
 
   @MessagePattern('projects.findOne.project')
   findOneProject(@Payload() id: string) {
-    return this.projectsService.findProjectById(id);
+    console.log(`Buscando proyecto con ID: ${id}`);
+    return this.projectsService.getProjectById(id);
+  }
+
+  @MessagePattern('projects.findByUser.project')
+  findProjectsByUser(@Payload() userId: string) {
+    console.log('entra a findProjectsByUser');
+    return this.projectsService.findProjectsByUser(userId);
+  }
+
+  @MessagePattern('projects.getMembers')
+  async getProjectMembers(@Payload() projectId: string): Promise<Members[]> {
+    console.log('Getting members for project:', projectId);
+    return this.projectsService.getProjectMembers(projectId);
   }
 }

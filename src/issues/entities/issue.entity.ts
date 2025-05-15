@@ -47,6 +47,9 @@ export class Issue {
   type: string;
 
   @Column({ type: 'varchar', length: 255 })
+  code: string;
+  
+  @Column({ type: 'varchar', length: 255 })
   acceptanceCriteria: string;
 
   @Column({ type: 'integer', nullable: true })

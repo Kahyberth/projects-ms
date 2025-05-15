@@ -1,8 +1,8 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
-import { catchError, lastValueFrom, of, timeout } from 'rxjs';
-import { Repository } from 'typeorm';
+import { catchError, firstValueFrom, lastValueFrom, of, timeout } from 'rxjs';
+import { Repository, DataSource } from 'typeorm';
 import { validate as validateUUID } from 'uuid';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { CreateIssueDto } from './dto/create-issue.dto';
@@ -10,6 +10,10 @@ import { UpdateCommentDto } from './dto/update-comment.dto';
 import { UpdateIssueDto } from './dto/update-issue.dto';
 import { Comments } from './entities/comments.entity';
 import { Issue } from './entities/issue.entity';
+import { ProductBacklog } from '../product-backlog/entities/product-backlog.entity';
+import { User } from 'src/interfaces/user.interface';
+import { Members } from '../projects/entities/members.entity';
+import { Project } from '../projects/entities/project.entity';
 
 @Injectable()
 export class issuesService {
@@ -19,23 +23,43 @@ export class issuesService {
     private readonly issueRepository: Repository<Issue>,
     @InjectRepository(Comments)
     private readonly commentsRepository: Repository<Comments>,
+    @InjectRepository(ProductBacklog)
+    private readonly productBacklogRepository: Repository<ProductBacklog>,
+    @InjectRepository(Members)
+    private readonly membersRepository: Repository<Members>,
+    @InjectRepository(Project)
+    private readonly projectRepository: Repository<Project>,
     @Inject('NATS_SERVICE') private readonly client: ClientProxy,
+    private readonly dataSource: DataSource,
   ) {}
 
+ 
   /**
    * Create a new issue
    * @param payload
    * @returns
    */
   async create(createIssueDto: CreateIssueDto): Promise<Issue> {
-    console.log('entraaaa')
-    const { createdBy, productBacklogId, assignedTo = createdBy } = createIssueDto;
-
     try {
+      this.logger.debug(`Creating issue with data: ${JSON.stringify(createIssueDto)}`);
+      
+      // Verificar que el backlog existe
+      const backlog = await this.productBacklogRepository.findOne({
+        where: { id: createIssueDto.productBacklogId }
+      });
+
+      if (!backlog) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: `Product backlog with ID ${createIssueDto.productBacklogId} not found`,
+        });
+      }
+
       // Verificación de usuarios en paralelo
+      this.logger.debug(`Verifying creator: ${createIssueDto.createdBy} and assignee: ${createIssueDto.assignedTo}`);
       const [creatorExists, assigneeExists] = await Promise.all([
-        this.verifyUser(createdBy),
-        assignedTo !== createdBy ? this.verifyUser(assignedTo) : true,
+        this.verifyUser(createIssueDto.createdBy),
+        createIssueDto.assignedTo ? this.verifyUser(createIssueDto.assignedTo) : Promise.resolve(true),
       ]);
 
       if (!creatorExists) {
@@ -45,24 +69,28 @@ export class issuesService {
         });
       }
 
-      if (!assigneeExists) {
+      if (createIssueDto.assignedTo && !assigneeExists) {
         throw new RpcException({
           status: HttpStatus.NOT_FOUND,
           message: 'El usuario asignado no existe',
         });
       }
 
+      // Generate issue code automatically
+      const issueCode = await this.generateIssueCode(createIssueDto.productBacklogId);
+
       const newIssue = this.issueRepository.create({
         ...createIssueDto,
-        assignedTo,
+        assignedTo: createIssueDto.assignedTo || createIssueDto.createdBy,
         status: createIssueDto.status || 'to-do',
+        code: issueCode, // Use the generated code
         priority: createIssueDto.priority || 'medium',
         type: createIssueDto.type || 'user_story',
-        story_points: createIssueDto.story_points ?? null,
+        story_points: createIssueDto.storyPoints ?? null,
         isDeleted: false,
         createdAt: new Date(),
         updatedAt: new Date(),
-        product_backlog: { id: productBacklogId },
+        product_backlog: { id: createIssueDto.productBacklogId },
       });
 
       return await this.issueRepository.save(newIssue);
@@ -71,6 +99,58 @@ export class issuesService {
       throw error;
     }
   }
+
+   /**
+   * Generate a sequential issue code based on project key
+   * @param productBacklogId Project ID to get the key
+   * @returns Generated issue code
+   */
+   private async generateIssueCode(productBacklogId: string): Promise<string> {
+    try {
+      // Get the project associated with this backlog
+      const project = await this.projectRepository.findOne({
+        where: { backlog: { id: productBacklogId } }
+      });
+
+      if (!project) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: `Project not found for backlog ${productBacklogId}`,
+        });
+      }
+
+      // Get the project key
+      const projectKey = project.project_key;
+
+      // Get all issues for this project's backlog, including deleted ones
+      const issues = await this.issueRepository.find({
+        where: { 
+          product_backlog: { id: productBacklogId }
+          // No isDeleted filter to include all issues ever created
+        }
+      });
+
+      // Find the highest issue number used so far
+      let maxNumber = 0;
+      issues.forEach(issue => {
+        if (issue.code && issue.code.startsWith(`${projectKey}-`)) {
+          const numberStr = issue.code.substring(projectKey.length + 1);
+          const number = parseInt(numberStr, 10);
+          if (!isNaN(number) && number > maxNumber) {
+            maxNumber = number;
+          }
+        }
+      });
+
+      // Generate the new code with the format PROJECT_KEY-NUMBER
+      const nextNumber = maxNumber + 1;
+      return `${projectKey}-${nextNumber}`;
+    } catch (error) {
+      this.logger.error(`Error generating issue code: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
 
   async findOne(id: string): Promise<Issue> {
     try {
@@ -145,6 +225,8 @@ export class issuesService {
    * Obtener issues de un product backlog (sin filtros adicionales)
    * @param BacklogId ID del product backlog
    */
+
+  ////BORRAR, QUE TRAIGA TODOS LOS ISSUES,AGREGAR FILTROS Y PAGINACIÓN 
   async findIssuesByBacklog(backlogId: string): Promise<Issue[]> {
     try {
       const issues = await this.issueRepository.find({
@@ -177,11 +259,54 @@ export class issuesService {
     }
   }
 
-  async update(id: string, updateIssueDto: UpdateIssueDto): Promise<Issue> {
+  async update(id: string, updateIssueDto: UpdateIssueDto, userId: string): Promise<Issue> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     try {
-      const issue = await this.findOne(id);
+      this.logger.debug(`Updating issue ${id} with data: ${JSON.stringify(updateIssueDto)}`);
+      const issue = await queryRunner.manager.findOne(Issue, {
+        where: { id, isDeleted: false },
+        relations: ['product_backlog']
+      });
+
+      if (!issue) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: `Issue con ID ${id} no encontrado`,
+        });
+      }
+
+      if (!issue.product_backlog) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: 'Issue does not have an associated product backlog',
+        });
+      }
+
+      // Check if the user is a member of the project that owns this issue's product backlog
+      const isMember = await queryRunner.manager.findOne(Members, {
+        where: { 
+          user_id: userId,
+          project: {
+            backlog: {
+              id: issue.product_backlog.id
+            }
+          }
+        },
+        relations: ['project', 'project.backlog']
+      });
+
+      if (!isMember) {
+        throw new RpcException({
+          status: HttpStatus.FORBIDDEN,
+          message: 'You are not a member of this project',
+        });
+      }
 
       if (updateIssueDto.assignedTo) {
+        this.logger.debug(`Verifying new assignee: ${updateIssueDto.assignedTo}`);
         const isValidUser = await this.verifyUser(updateIssueDto.assignedTo);
         if (!isValidUser) {
           throw new RpcException({
@@ -191,16 +316,21 @@ export class issuesService {
         }
       }
 
-      const updatedIssue = this.issueRepository.merge(issue, {
+      const updatedIssue = queryRunner.manager.merge(Issue, issue, {
         ...updateIssueDto,
         updatedAt: new Date(),
         assignedTo: updateIssueDto.assignedTo || issue.assignedTo
       });
 
-      return await this.issueRepository.save(updatedIssue);
+      const savedIssue = await queryRunner.manager.save(updatedIssue);
+      await queryRunner.commitTransaction();
+      return savedIssue;
     } catch (error) {
+      await queryRunner.rollbackTransaction();
       this.logger.error(`Error al actualizar issue ${id}`, error.stack);
       throw error;
+    } finally {
+      await queryRunner.release();
     }
   }
 
@@ -233,79 +363,22 @@ export class issuesService {
     }
   }
 
-  private async verifyUser(userId: string): Promise<boolean> {
-    try {
-      this.logger.debug(`Intentando verificar usuario ${userId}`);
-      
-      const user = await lastValueFrom(
-        this.client.send('auth.get.profile', userId).pipe(
-          timeout(5000),
-          catchError(error => {
-            this.logger.error(`Error detallado verificando usuario ${userId}:`, {
-              error: error.message,
-              stack: error.stack,
-              name: error.name,
-              code: error.code
-            });
-            
-            if (error.name === 'TimeoutError') {
-              throw new RpcException({
-                status: HttpStatus.REQUEST_TIMEOUT,
-                message: 'Timeout al verificar usuario',
-              });
-            }
-            
-            // Si es un error de conexión NATS
-            if (error.code === 'ECONNREFUSED' || error.code === 'NATS_CONNECTION_ERROR') {
-              throw new RpcException({
-                status: HttpStatus.SERVICE_UNAVAILABLE,
-                message: 'Servicio de autenticación no disponible',
-              });
-            }
-
-            // Si el error es que el usuario no existe
-            if (error.code === 404 || error.message?.includes('Usuario no encontrado')) {
-              return of(false);
-            }
-            
-            throw new RpcException({
-              status: HttpStatus.INTERNAL_SERVER_ERROR,
-              message: `Error al verificar usuario: ${error.message}`,
-            });
-          })
-        )
-      );
-      
-      if (!user) {
-        this.logger.warn(`Usuario ${userId} no encontrado`);
-        return false;
-      }
-      
-      this.logger.debug(`Usuario ${userId} verificado exitosamente`);
-      return true;
-    } catch (error) {
-      this.logger.error(`Error en verifyUser para ${userId}:`, {
-        error: error.message,
-        stack: error.stack,
-        name: error.name,
-        code: error.code
-      });
-      
-      if (error instanceof RpcException) {
-        throw error;
-      }
-      
-      throw new RpcException({
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: `Error al verificar usuario: ${error.message}`,
-      });
-    }
+  private async verifyUser(userId: string): Promise<User> {
+    console.log('userId', userId)
+    return await firstValueFrom(
+      this.client.send('auth.find.user.by.id', userId).pipe(
+        catchError((error) => {
+          this.logger.error(`Error fetching user ${userId}`, error.stack);
+          throw error;
+        }),
+      ),
+    );
   }
-
 
   async createComment(createCommentDto: CreateCommentDto): Promise<Comments> {
     try {
       const { issue_id, user_id, comment } = createCommentDto;
+      this.logger.debug(`Creating comment for issue ${issue_id} by user ${user_id}`);
 
       // Verify if the issue exists
       const issue = await this.findOne(issue_id);
@@ -317,6 +390,7 @@ export class issuesService {
       }
 
       // Verify if the user exists
+      this.logger.debug(`Verifying comment author: ${user_id}`);
       const userExists = await this.verifyUser(user_id);
       if (!userExists) {
         throw new RpcException({
@@ -433,6 +507,52 @@ export class issuesService {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         message: 'Error al eliminar el comentario',
       });
+    }
+  }
+
+  /**
+   * Get the last issue number for a specific project
+   * @param projectId Project ID
+   * @returns Last issue number
+   */
+  async getLastIssueNumber(projectId: string): Promise<number> {
+    try {
+      const project = await this.projectRepository.findOne({
+        where: { id: projectId }
+      });
+
+      if (!project) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: `Project with ID ${projectId} not found`,
+        });
+      }
+
+      const projectKey = project.project_key;
+
+      // Find all issues for this project
+      const issues = await this.issueRepository
+        .createQueryBuilder('issue')
+        .innerJoin('issue.product_backlog', 'backlog')
+        .innerJoin('backlog.project', 'project')
+        .where('project.id = :projectId', { projectId })
+        .getMany();
+      
+      let maxNumber = 0;
+      issues.forEach(issue => {
+        if (issue.code && issue.code.startsWith(`${projectKey}-`)) {
+          const numberStr = issue.code.substring(projectKey.length + 1);
+          const number = parseInt(numberStr, 10);
+          if (!isNaN(number) && number > maxNumber) {
+            maxNumber = number;
+          }
+        }
+      });
+
+      return maxNumber;
+    } catch (error) {
+      this.logger.error(`Error getting last issue number: ${error.message}`, error.stack);
+      throw error;
     }
   }
 }

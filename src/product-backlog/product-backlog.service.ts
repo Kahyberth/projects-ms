@@ -8,6 +8,8 @@ import { Project } from 'src/projects/entities/project.entity';
 import { Sprint } from 'src/sprint-backlog/entities/sprint.entity';
 import { EntityManager, Repository } from 'typeorm';
 import { ProductBacklog } from './entities/product-backlog.entity';
+import { CreateProductBacklogDto } from './dto/create-product-backlog.dto';
+import { UpdateProductBacklogDto } from './dto/update-product-backlog.dto';
 
 @Injectable()
 export class ProductBacklogService {
@@ -24,25 +26,20 @@ export class ProductBacklogService {
     private readonly projectRepository: Repository<Project>,
   ) {}
 
-  /**
-   * Agrega una issue a un product backlog
-   * @param createIssueDto dto con la issue
-   * @returns issue agregada
-   */
-  async addIssueToBacklog(
-    createIssueDto: CreateIssueDto,
-    productBacklogId: string,
-  ): Promise<Issue> {
-    const issue = this.issueRepository.create({
-      ...createIssueDto,
-      status: 'to-do',
-    });
+  async create(createProductBacklogDto: CreateProductBacklogDto) {
+    const productBacklog = this.productBacklogRepository.create(
+      createProductBacklogDto,
+    );
+    return await this.productBacklogRepository.save(productBacklog);
+  }
 
-    await this.issueRepository.save(issue);
+  async findAll() {
+    return await this.productBacklogRepository.find();
+  }
 
+  async findOne(id: string) {
     const productBacklog = await this.productBacklogRepository.findOne({
-      where: { id: productBacklogId },
-      relations: ['issues'],
+      where: { id },
     });
 
     if (!productBacklog) {
@@ -52,13 +49,19 @@ export class ProductBacklogService {
       });
     }
 
-    if (!productBacklog.issues) {
-      productBacklog.issues = [];
-    }
-    productBacklog.issues.push(issue);
-    await this.productBacklogRepository.save(productBacklog);
+    return productBacklog;
+  }
 
-    return issue;
+  async update(id: string, updateProductBacklogDto: UpdateProductBacklogDto) {
+    const productBacklog = await this.findOne(id);
+
+    Object.assign(productBacklog, updateProductBacklogDto);
+    return await this.productBacklogRepository.save(productBacklog);
+  }
+
+  async remove(id: string) {
+    const productBacklog = await this.findOne(id);
+    return await this.productBacklogRepository.remove(productBacklog);
   }
 
   /**
@@ -119,35 +122,14 @@ export class ProductBacklogService {
     const query = this.issueRepository
       .createQueryBuilder('issue')
       .innerJoin('issue.product_backlog', 'backlog')
-      .where('backlog.id = :backlogId', { backlogId });
+      .where('backlog.id = :backlogId', { backlogId })
+      .andWhere('issue.isDeleted = :isDeleted', { isDeleted: false });
 
     if (filters?.status) {
       query.andWhere('issue.status = :status', { status: filters.status });
     }
 
     return query.orderBy('issue.story_points', 'DESC').getMany();
-  }
-
-  /**
-   * Actualiza el orden de las issues de un product backlog
-   * @param updateOrderDto dto con el id de la issue y el nuevo orden
-   * @returns issue actualizada
-   */
-  async updateIssueOrder(updateOrderDto: UpdateIssueDto): Promise<Issue> {
-    await this.issueRepository.update(
-      { id: updateOrderDto.issueId },
-      { story_points: updateOrderDto.newPriority },
-    );
-    const issue = await this.issueRepository.findOne({
-      where: { id: updateOrderDto.issueId },
-    });
-    if (!issue) {
-      throw new RpcException({
-        status: HttpStatus.NOT_FOUND,
-        message: 'Issue no encontrado',
-      });
-    }
-    return issue;
   }
 
   /**
@@ -238,24 +220,6 @@ export class ProductBacklogService {
         return issue;
       },
     );
-  }
-
-  /**
-   * Obtiene un product backlog por su id
-   * @param id id del product backlog
-   * @returns product backlog
-   */
-  async getProductBacklog(id: string): Promise<ProductBacklog> {
-    const productBacklog = await this.productBacklogRepository.findOne({
-      where: { id },
-    });
-    if (!productBacklog) {
-      throw new RpcException({
-        status: HttpStatus.NOT_FOUND,
-        message: 'Product backlog no encontrado',
-      });
-    }
-    return productBacklog;
   }
 
   /**

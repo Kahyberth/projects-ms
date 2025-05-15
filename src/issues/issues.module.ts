@@ -9,10 +9,13 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { envs } from 'src/config/envs';
 import { EpicsService } from './epics.service';
 import { EpicsController } from './epics.controller';
+import { ProductBacklog } from 'src/product-backlog/entities/product-backlog.entity';
+import { Members } from 'src/projects/entities/members.entity';
+import { Project } from 'src/projects/entities/project.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Issue, Comments, Epic]),
+    TypeOrmModule.forFeature([Issue, Comments, Epic, ProductBacklog, Members, Project]),
     ClientsModule.register([
       {
         name: 'NATS_SERVICE',
