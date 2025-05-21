@@ -2,15 +2,16 @@ import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
 import { catchError, firstValueFrom } from 'rxjs';
-import { Team } from 'src/interfaces/team.interface';
-import { User } from 'src/interfaces/user.interface';
-import { ProductBacklog } from 'src/product-backlog/entities/product-backlog.entity';
-import { SendInvitationService } from 'src/send-invitation/send-invitation.service';
+import { Team } from '../interfaces/team.interface';
+import { User } from '../common/interfaces/user.interface';
+import { ProductBacklog } from '../product-backlog/entities/product-backlog.entity';
+import { SendInvitationService } from '../send-invitation/send-invitation.service';
 import { Repository } from 'typeorm';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { Members } from './entities/members.entity';
 import { Project } from './entities/project.entity';
+import { InviteMemberDto } from './dto/invite-member.dto';
 @Injectable()
 export class ProjectsService {
   private readonly logger = new Logger(ProjectsService.name);
@@ -240,20 +241,31 @@ export class ProjectsService {
    */
   async findProjectsByUser(userId: string): Promise<Project[]> {
     try {
-      console.log('findProjectsByUser');
-      const projects = await this.projectRepository.find({
-        where: {
-          members: {
-            user_id: userId
-          },
-          is_available: true
-        },
-        order: {
-          createdAt: 'DESC'
-        }
-      });
-
+      this.logger.log(`Finding projects where user ${userId} is a member`);
+      
+      // Using query builder to explicitly join the members table
+      const query = this.projectRepository
+        .createQueryBuilder('project')
+        .innerJoinAndSelect('project.members', 'member', 'member.user_id = :userId', { userId })
+        .where('project.is_available = :isAvailable', { isAvailable: true })
+        .orderBy('project.createdAt', 'DESC');
+      
+      
+        
+      // Log the generated SQL for debugging
+      const sql = query.getSql();
+      this.logger.debug(`Generated SQL: ${sql}`);
+      
+      const projects = await query.getMany();
       console.log(projects);
+
+      this.logger.log(`Found ${projects.length} projects for user ${userId}`);
+      
+      // Add more project info for debugging
+      if (projects.length > 0) {
+        this.logger.debug(`Project names: ${projects.map(p => p.name).join(', ')}`);
+      }
+      
       return projects;
     } catch (error) {
       this.logger.error(`Error al buscar proyectos del usuario ${userId}:`, error.stack);
@@ -347,15 +359,19 @@ export class ProjectsService {
   }
 
   /**
-   * @author Kahyberth
-   * @param projectId
-   * @param userId
-   * @returns
+   * Invita a un miembro a un proyecto y envía un correo electrónico de invitación
+   * Verifica que el usuario ya sea miembro del equipo antes de añadirlo al proyecto
+   * @param inviteDto Datos de la invitación
+   * @returns La membresía creada
    */
-  async inviteMemberToProject(
-    projectId: string,
-    userId: string,
-  ): Promise<Members> {
+  async inviteMemberToProject(inviteDto: InviteMemberDto): Promise<Members> {
+    const { projectId, userId, email, invitedUserId } = inviteDto;
+    const invitedUser = await this.findUserById(invitedUserId);
+    const user = await this.findUserById(userId);
+    if (!invitedUser) {
+      throw new RpcException('User to invite not found');
+    }
+    
     const project = await this.projectRepository.findOne({
       where: { id: projectId, is_available: true },
     });
@@ -365,21 +381,57 @@ export class ProjectsService {
     }
 
     const existing = await this.membersRepository.findOne({
-      where: { user_id: userId, project: { id: projectId } },
+      where: { user_id: invitedUserId, project: { id: projectId } },
       relations: ['project'],
     });
+
+    console.log(existing);
 
     if (existing) {
       throw new RpcException('User is already a member of this project');
     }
-
-    const member = this.membersRepository.create({
-      user_id: userId,
-      project,
-      joinedAt: new Date(),
-    });
-
-    return this.membersRepository.save(member);
+    
+    const team = await this.findTeamById(project.team_id);
+      
+    try {
+      const member = this.membersRepository.create({
+        user_id: invitedUserId,
+        project,
+        joinedAt: new Date(),
+      });
+      
+      const savedMember = await this.membersRepository.save(member);
+      
+      // Si hay email, intentamos enviar invitación
+      if (email) {
+        try {
+          
+  
+          // Preparar datos para la invitación
+          const payload = {
+            host: user?.name,
+            invitedEmail: email,
+            invitedName: invitedUser?.name,
+            projectName: project.name,
+            projectId: project.id,
+            teamName: team.name,
+            link: 'http://localhost:5173/dashboard/projects',
+          };
+          
+          // Enviar el email de invitación
+          await this.sendInvitationService.viewProjectInvitation(payload);
+          this.logger.log(`Invitation email sent to ${email} for project ${project.name}`);
+        } catch (error) {
+          this.logger.error('Error sending invitation email:', error);
+          // No interrumpimos el flujo si falla el envío de email
+        }
+      }
+      
+      return savedMember;
+    } catch (error) {
+      this.logger.error(`Error inviting member to project: ${error.message}`);
+      throw new RpcException(`Failed to invite member: ${error.message}`);
+    }
   }
 
   /**

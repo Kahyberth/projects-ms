@@ -1,7 +1,8 @@
-import { Controller } from '@nestjs/common';
+import { Controller, Logger } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { ProjectsService } from './projects.service';
 import { Members } from './entities/members.entity';
+import { InviteMemberDto } from './dto/invite-member.dto';
 
 @Controller()
 export class ProjectsController {
@@ -40,5 +41,10 @@ export class ProjectsController {
   async getProjectMembers(@Payload() projectId: string): Promise<Members[]> {
     console.log('Getting members for project:', projectId);
     return this.projectsService.getProjectMembers(projectId);
+  }
+
+  @MessagePattern('projects.invite.member')
+  async inviteMemberToProject(@Payload() payload: InviteMemberDto): Promise<Members> {
+    return this.projectsService.inviteMemberToProject(payload);
   }
 }

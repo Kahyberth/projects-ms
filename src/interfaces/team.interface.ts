@@ -6,4 +6,15 @@ export interface Team {
     createdAt:   Date;
     updatedAt:   Date;
     leaderId:    string;
+    members?:    TeamMember[];
+}
+
+export interface TeamMember {
+    member: {
+        id: string;
+        name?: string;
+        lastName?: string;
+        email?: string;
+    };
+    role?: string;
 }
