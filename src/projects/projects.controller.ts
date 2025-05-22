@@ -26,4 +26,18 @@ export class ProjectsController {
   findOneProject(@Payload() id: string) {
     return this.projectsService.findProjectById(id);
   }
+
+
+  @MessagePattern('projects.findAllByUser.project')
+  findAllProjectsByUser(@Payload() data: any) {
+    const { userId, page, limit } = data;
+    return this.projectsService.getAllProjectsByUser(userId, page, limit);
+  }
+
+  @MessagePattern('projects.members.paginated')
+  getProjectMembersPaginated(@Payload() data: { projectId: string; page?: number; limit?: number }) {
+    const { projectId, page, limit } = data;
+    return this.projectsService.getProjectMembersPaginated(projectId, page, limit);
+  }
+
 }

@@ -251,4 +251,30 @@ export class issuesService {
         .pipe(timeout(3000))
     */
   }
+
+  /**
+   * Actualiza el status de una issue
+   * @param id ID de la issue
+   * @param newStatus Nuevo status de la issue
+   * @returns Issue actualizada
+   */
+  async updateIssueStatus(id: string, newStatus: string): Promise<Issue> {
+    try {
+      const issue = await this.findOne(id);
+      console.log(newStatus);
+      const validStatuses = ['to-do', 'in-progress', 'review', 'resolved', 'closed'];
+      if (!validStatuses.includes(newStatus)) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'Status inválido',
+        });
+      }
+      issue.status = newStatus;
+      issue.updatedAt = new Date();
+      return await this.issueRepository.save(issue);
+    } catch (error) {
+      this.logger.error(`Error al actualizar status de issue ${id}`, error.stack);
+      throw error;
+    }
+  }
 }

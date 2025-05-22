@@ -6,7 +6,7 @@ import { Team } from 'src/interfaces/team.interface';
 import { User } from 'src/interfaces/user.interface';
 import { ProductBacklog } from 'src/product-backlog/entities/product-backlog.entity';
 import { SendInvitationService } from 'src/send-invitation/send-invitation.service';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { Members } from './entities/members.entity';
@@ -25,6 +25,7 @@ export class ProjectsService {
     private readonly client: ClientProxy,
     @InjectRepository(ProductBacklog)
     private readonly productBacklogRepository: Repository<ProductBacklog>,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -64,6 +65,8 @@ export class ProjectsService {
 
       const savedProject = await this.projectRepository.save(project);
 
+      console.log("Created by",dto.created_by);
+      
       const creatorMember = this.membersRepository.create({
         user_id: dto.created_by,
         project: savedProject,
@@ -213,22 +216,42 @@ export class ProjectsService {
     return this.projectRepository.save(updatedProject);
   }
 
+
+
+  
+
   /**
    * @async
    * @author Kahyberth
-   * @description Gets all the Projects were created
-   * @returns Promise<Project[]>
+   * @description Gets all the Projects were created with pagination
+   * @param page - Page number (starts from 1)
+   * @param limit - Number of items per page
+   * @returns Promise<{ data: Project[], total: number, page: number, limit: number }>
    */
-  async getAllProjects(): Promise<Project[]> {
-    return await this.projectRepository.find({
+  async getAllProjects(
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{ data: Project[]; total: number; page: number; limit: number }> {
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await this.projectRepository.findAndCount({
       where: {
         is_available: true,
       },
-      relations: ['members', 'epic', 'backlog', 'sprint', 'logging'],
+      relations: ['members', 'backlog', 'sprint', 'logging'],
       order: {
         createdAt: 'DESC',
       },
+      skip,
+      take: limit,
     });
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+    };
   }
 
   /**
@@ -397,6 +420,39 @@ export class ProjectsService {
     return project;
   }
 
+  
+  /**
+   * @author Kahyberth
+   * @param userId
+   * @param page
+   * @param limit
+   * @description It is responsible for getting all the projects where the user is a member
+   * @returns Promise<Project[]>
+   */
+  async getAllProjectsByUser(userId: string, page: number = 1, limit: number = 10): Promise<Project[]> {
+    const user = await this.findUserById(userId);
+
+    if (!user) {
+      throw new RpcException('User not found');
+    }
+
+    try {
+      const projects = await this.getAllProjects(page, limit);
+
+      const projectsWithUsers = projects.data.map((project) => {
+        project.members = project.members.filter(
+          (member) => member.user_id === userId,
+        );
+        return project;
+      });
+
+      return projectsWithUsers;
+    } catch (error) {
+      this.logger.error('Error getting projects by user', error.stack);
+      throw error;
+    }
+  }
+
   /**
    * @author Kahyberth
    * @param projectId
@@ -413,5 +469,24 @@ export class ProjectsService {
     }
 
     return project;
+  }
+
+  /**
+   * Obtiene los miembros de un proyecto por id con paginación
+   * @param projectId id del proyecto
+   * @param page número de página (por defecto 1)
+   * @param limit cantidad por página (por defecto 10)
+   * @returns Promise<{ data: Members[], total: number, page: number, limit: number }>
+   */
+  async getProjectMembersPaginated(projectId: string, page: number = 1, limit: number = 10): Promise<{ data: Members[]; total: number; page: number; limit: number }> {
+    const skip = (page - 1) * limit;
+    const [data, total] = await this.membersRepository.findAndCount({
+      where: { project: { id: projectId } },
+      relations: ['project'],
+      skip,
+      take: limit,
+      order: { joinedAt: 'DESC' },
+    });
+    return { data, total, page, limit };
   }
 }

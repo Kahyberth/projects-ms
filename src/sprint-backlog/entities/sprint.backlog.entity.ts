@@ -1,5 +1,12 @@
 import { Issue } from 'src/issues/entities/issue.entity';
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Project } from 'src/projects/entities/project.entity';
+import {
+  Column,
+  Entity,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { Sprint } from './sprint.entity';
 
 @Entity()
@@ -10,9 +17,12 @@ export class SprintBacklog {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   assigment_date: Date;
 
-  @ManyToOne(() => Issue, (issue) => issue.sprint_backlog)
-  issue: Issue;
+  @OneToMany(() => Issue, (issue) => issue.sprint_backlog)
+  issues: Issue[];
 
   @ManyToOne(() => Sprint, (sprint) => sprint.sprint_backlog)
   sprint: Sprint;
+
+  @ManyToOne(() => Project)
+  project: Project;
 }

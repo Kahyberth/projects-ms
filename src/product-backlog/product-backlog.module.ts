@@ -8,11 +8,12 @@ import { Sprint } from 'src/sprint-backlog/entities/sprint.entity';
 import { ProductBacklog } from './entities/product-backlog.entity';
 import { ProductBacklogController } from './product-backlog.controller';
 import { ProductBacklogService } from './product-backlog.service';
+import { SprintBacklog } from 'src/sprint-backlog/entities/sprint.backlog.entity';
 @Module({
   controllers: [ProductBacklogController],
   providers: [ProductBacklogService],
   imports: [
-    TypeOrmModule.forFeature([ProductBacklog, Issue, Sprint, Epic, Project]),
+    TypeOrmModule.forFeature([ProductBacklog, Issue, Sprint, Epic, Project, SprintBacklog]),
     ClientsModule.register([
       {
         name: 'NATS_SERVICE',

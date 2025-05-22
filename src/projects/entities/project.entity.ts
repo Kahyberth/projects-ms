@@ -11,6 +11,7 @@ import {
 import { Members } from './members.entity';
 import { Sprint } from 'src/sprint-backlog/entities/sprint.entity';
 import { SprintLogging } from 'src/sprint-backlog/entities/sprint.logging.entity';
+import { SprintBacklog } from 'src/sprint-backlog/entities/sprint.backlog.entity';
 
 @Entity({ name: 'projects' })
 export class Project {
@@ -72,6 +73,9 @@ export class Project {
 
   @OneToMany(() => Sprint, (sprint) => sprint.project)
   sprint: Sprint[];
+
+  @OneToMany(() => SprintBacklog, (sprintBacklog) => sprintBacklog.project)
+  sprint_backlog: SprintBacklog[];
 
   @OneToMany(() => SprintLogging, (sprint_logging) => sprint_logging.project)
   logging: SprintLogging[];

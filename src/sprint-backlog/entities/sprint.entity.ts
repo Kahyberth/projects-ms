@@ -1,16 +1,14 @@
+import { Issue } from 'src/issues/entities/issue.entity';
 import { Project } from 'src/projects/entities/project.entity';
 import {
   Column,
   Entity,
-  JoinTable,
-  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { SprintBacklog } from './sprint.backlog.entity';
 import { SprintLogging } from './sprint.logging.entity';
-import { Issue } from 'src/issues/entities/issue.entity';
 
 @Entity()
 export class Sprint {
@@ -29,10 +27,16 @@ export class Sprint {
   })
   goal: string;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ type: 'boolean', default: false })
+  isFinished: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  isStarted: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
   startedAt: Date;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ type: 'timestamp', nullable: true })
   fnishedAt: Date;
 
   @ManyToOne(() => Project, (project) => project.sprint)

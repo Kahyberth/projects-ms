@@ -46,6 +46,12 @@ export class Issue {
   })
   type: string;
 
+  @Column({ type: 'boolean', default: false })
+  in_sprint: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  in_product_backlog: boolean;
+
   @Column({ type: 'varchar', length: 255 })
   acceptanceCriteria: string;
 
@@ -84,12 +90,12 @@ export class Issue {
   @ManyToOne(() => Epic, (epic) => epic.issue)
   epic: Epic;
 
-  @OneToMany(() => SprintBacklog, (sprint_backlog) => sprint_backlog.issue)
-  sprint_backlog: SprintBacklog[];
+  @ManyToOne(() => SprintBacklog, (sprint_backlog) => sprint_backlog.issues, { nullable: true })
+  sprint_backlog: SprintBacklog | null;
 
   @OneToMany(() => SprintLogging, (sprint_logging) => sprint_logging.issue)
   logging: SprintLogging[];
 
-  @ManyToOne(() => Sprint, (sprint) => sprint.issues)
-  sprint: Sprint;
+  @ManyToOne(() => Sprint, (sprint) => sprint.issues, { nullable: true })
+  sprint: Sprint | null;
 }

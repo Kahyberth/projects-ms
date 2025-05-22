@@ -36,4 +36,10 @@ export class issuesController {
   findByBacklog(@Payload() backlogId: string) {
     return this.issuesService.findIssuesByBacklog(backlogId);
   }
+
+  @MessagePattern('issues.update.status')
+  async updateIssueStatus(@Payload() payload: { id: string; newStatus: string }) {
+    console.log("Payload",payload);
+    return this.issuesService.updateIssueStatus(payload.id, payload.newStatus);
+  }
 }

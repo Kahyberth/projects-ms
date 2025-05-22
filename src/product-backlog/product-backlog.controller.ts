@@ -87,4 +87,14 @@ export class ProductBacklogController {
   ): Promise<Issue> {
     return this.productBacklogService.removeIssueFromBacklog(payload.issueId);
   }
+
+  @MessagePattern('product-backlog.moveIssueToBacklog')
+  async moveIssueToBacklog(
+    @Payload() payload: { issueId: string; productBacklogId: string },
+  ): Promise<Issue> {
+    return this.productBacklogService.moveIssueToBacklog(
+      payload.issueId,
+      payload.productBacklogId,
+    );
+  }
 }
