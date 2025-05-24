@@ -195,6 +195,18 @@ export class ProjectsService {
     );
   }
 
+
+  private async getMembersByTeam(teamId: string, page: number = 1) {
+    return await firstValueFrom(
+      this.client.send('teams.paginate.members.by.team', { teamId, page }).pipe(
+        catchError((error) => {
+          this.logger.error(`Error fetching team ${teamId}`, error.stack);
+          throw error;
+        }),
+      ),
+    );
+  }
+
   /**
    * @async
    * @author Kahyberth
@@ -482,9 +494,11 @@ export class ProjectsService {
   //   }
   // }
 
-  
-
-  async getAllProjectsByUser(userId: string, page: number = 1, limit: number = 10): Promise<any> {
+  async getAllProjectsByUser(
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<any> {
     const user = await this.findUserById(userId);
 
     if (!user) {
@@ -494,29 +508,36 @@ export class ProjectsService {
     try {
       const skip = (page - 1) * limit;
 
-
       const query = this.projectRepository
         .createQueryBuilder('project')
-        .innerJoinAndSelect('project.members', 'member', 'member.user_id = :userId', { userId })
+        .innerJoinAndSelect(
+          'project.members',
+          'member',
+          'member.user_id = :userId',
+          { userId },
+        )
         .where('project.is_available = :isAvailable', { isAvailable: true })
         .orderBy('project.createdAt', 'DESC')
         .skip(skip)
         .take(limit);
 
-
       const totalQuery = this.projectRepository
         .createQueryBuilder('project')
-        .innerJoin('project.members', 'member', 'member.user_id = :userId', { userId })
+        .innerJoin('project.members', 'member', 'member.user_id = :userId', {
+          userId,
+        })
         .where('project.is_available = :isAvailable', { isAvailable: true });
 
       const [projects, total] = await Promise.all([
         query.getMany(),
-        totalQuery.getCount()
+        totalQuery.getCount(),
       ]);
 
       const totalPages = Math.ceil(total / limit);
 
-      this.logger.log(`Found ${projects.length} projects for user ${userId} (page ${page} of ${totalPages})`);
+      this.logger.log(
+        `Found ${projects.length} projects for user ${userId} (page ${page} of ${totalPages})`,
+      );
 
       return {
         data: projects,
@@ -524,8 +545,8 @@ export class ProjectsService {
           total,
           totalPages,
           page,
-          perPage: limit
-        }
+          perPage: limit,
+        },
       };
     } catch (error) {
       this.logger.error('Error getting projects by user', error.stack);
@@ -535,8 +556,6 @@ export class ProjectsService {
       });
     }
   }
-
-
 
   /**
    * @author Kahyberth
@@ -567,7 +586,19 @@ export class ProjectsService {
     projectId: string,
     page: number = 1,
     limit: number = 10,
-  ): Promise<{ data: Members[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    users: {
+      name: string;
+      lastName: string;
+      userId: string;
+      email: string;
+      memberId: string;
+    }[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
     const skip = (page - 1) * limit;
     const [data, total] = await this.membersRepository.findAndCount({
       where: { project: { id: projectId } },
@@ -576,6 +607,50 @@ export class ProjectsService {
       take: limit,
       order: { joinedAt: 'DESC' },
     });
-    return { data, total, page, limit };
+
+    const totalPages = Math.ceil(total / limit);
+
+    const users = await Promise.all(
+      data.map(async (member) => {
+        const user = await this.findUserById(member.user_id);
+        return {
+          name: user.name,
+          lastName: user.lastName,
+          userId: user.id,
+          email: user.email,
+          memberId: member.id,
+        };
+      }),
+    );
+
+    return {users, total, page, limit, totalPages };
   }
+
+
+
+
+
+
+
+
+
+async getMembersByTeamNotInProject(teamId: string): Promise<Members[]> {
+ const membersInProject = await this.membersRepository.find({
+    where: { project: { team_id: teamId } },
+    relations: ['project'],
+  });
+  const membersInTeam = await this.getMembersByTeam(teamId);
+  const membersInTeamNotInProject = membersInTeam.filter(member => !membersInProject.includes(member));
+  return membersInTeamNotInProject;
+}
+
+
+
+
+
+
+
+
+
+
 }

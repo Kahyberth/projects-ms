@@ -36,8 +36,14 @@ export class ProjectsController {
 
   @MessagePattern('projects.members.paginated')
   getProjectMembersPaginated(@Payload() data: { projectId: string; page?: number; limit?: number }) {
-    const { projectId, page, limit } = data;
-    return this.projectsService.getProjectMembers(projectId);
+    const { projectId, page = 1, limit = 10 } = data;
+    return this.projectsService.getProjectMembersPaginated(projectId, page, limit);
+  }
+
+  @MessagePattern('projects.members.not.in.project')
+  getMembersByTeamNotInProject(@Payload() data: { teamId: string }) {
+    const { teamId } = data;
+    return this.projectsService.getMembersByTeamNotInProject(teamId);
   }
 
 }
