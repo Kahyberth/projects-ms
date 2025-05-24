@@ -25,6 +25,12 @@ export class ProjectsController {
     return this.projectsService.getAllProjects();
   }
 
+  @MessagePattern('projects.findAllByUser.project')
+  findAllProjectsByUser(@Payload() data: any) {
+    const { userId, page, limit } = data;
+    return this.projectsService.getAllProjectsByUser(userId, page, limit);
+  }
+
   @MessagePattern('projects.findOne.project')
   findOneProject(@Payload() id: string) {
     console.log(`Buscando proyecto con ID: ${id}`);

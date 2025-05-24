@@ -34,7 +34,7 @@ export class Issue {
 
   @Column({
     type: 'enum',
-    enum: ['review', 'to-do', 'in-progress', 'resolved', 'closed'],
+    enum: ['review', 'to-do', 'in-progress', 'done', 'closed'],
     default: 'to-do',
   })
   status: string;
@@ -84,8 +84,10 @@ export class Issue {
   })
   product_backlog: ProductBacklog | null;
 
-  @ManyToOne(() => Epic, (epic) => epic.issue)
-  epic: Epic;
+  @ManyToOne(() => Epic, (epic) => epic.issue, {
+    nullable: true,
+  })
+  epic: Epic | null;
 
   @OneToMany(() => SprintBacklog, (sprint_backlog) => sprint_backlog.issue)
   sprint_backlog: SprintBacklog[];

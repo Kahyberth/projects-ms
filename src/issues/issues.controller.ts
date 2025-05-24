@@ -1,5 +1,5 @@
-import { Controller } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
+import { Controller, Get, Param, HttpStatus } from '@nestjs/common';
+import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
 import { issuesService } from './issues.service';
 import { CreateIssueDto } from './dto/create-issue.dto';
 import { UpdateIssueDto } from './dto/update-issue.dto';
@@ -66,4 +66,11 @@ export class issuesController {
   async getLastIssueNumber(@Payload() payload: { projectId: string }) {
     return this.issuesService.getLastIssueNumber(payload.projectId);
   }
+
+  @MessagePattern('issues.by-epic')
+  async getIssuesByEpic(@Payload() epicId: string) {
+    console.log("Fetching issues by epic:", epicId);
+    return this.issuesService.getIssuesByEpic(epicId);
+  }
+
 }

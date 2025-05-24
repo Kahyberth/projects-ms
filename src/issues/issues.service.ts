@@ -14,6 +14,7 @@ import { ProductBacklog } from '../product-backlog/entities/product-backlog.enti
 import { User } from 'src/interfaces/user.interface';
 import { Members } from '../projects/entities/members.entity';
 import { Project } from '../projects/entities/project.entity';
+import { Epic } from './entities/epic.entity';
 
 @Injectable()
 export class issuesService {
@@ -31,6 +32,8 @@ export class issuesService {
     private readonly projectRepository: Repository<Project>,
     @Inject('NATS_SERVICE') private readonly client: ClientProxy,
     private readonly dataSource: DataSource,
+    @InjectRepository(Epic)
+    private readonly epicRepository: Repository<Epic>,
   ) {}
 
  
@@ -83,13 +86,14 @@ export class issuesService {
         ...createIssueDto,
         assignedTo: createIssueDto.assignedTo || createIssueDto.createdBy,
         status: createIssueDto.status || 'to-do',
-        code: issueCode, // Use the generated code
+        code: issueCode,
         priority: createIssueDto.priority || 'medium',
         type: createIssueDto.type || 'user_story',
         story_points: createIssueDto.storyPoints ?? null,
         isDeleted: false,
         createdAt: new Date(),
         updatedAt: new Date(),
+        epic: createIssueDto.epicId ? { id: createIssueDto.epicId } : null,
         product_backlog: { id: createIssueDto.productBacklogId },
       });
 
@@ -314,12 +318,27 @@ export class issuesService {
             message: 'El usuario asignado no existe',
           });
         }
+
+        // Enviar notificación al usuario asignado
+        this.client.emit('notification.issue.assigned', {
+          userId: updateIssueDto.assignedTo,
+          issueData: {
+            id: issue.id,
+            title: issue.title,
+            description: issue.description,
+            code: issue.code,
+            status: issue.status,
+            priority: issue.priority,
+            type: issue.type,
+          }
+        });
       }
 
       const updatedIssue = queryRunner.manager.merge(Issue, issue, {
         ...updateIssueDto,
         updatedAt: new Date(),
-        assignedTo: updateIssueDto.assignedTo || issue.assignedTo
+        assignedTo: updateIssueDto.assignedTo || issue.assignedTo,
+        epic: updateIssueDto.epicId ? { id: updateIssueDto.epicId } : null,
       });
 
       const savedIssue = await queryRunner.manager.save(updatedIssue);
@@ -553,6 +572,55 @@ export class issuesService {
     } catch (error) {
       this.logger.error(`Error getting last issue number: ${error.message}`, error.stack);
       throw error;
+    }
+  }
+
+  async getIssuesByEpic(epicId: string): Promise<Issue[]> {
+    try {
+      if (!validateUUID(epicId)) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'ID de épica inválido',
+        });
+      }
+
+      this.logger.debug(`Buscando épica con ID: ${epicId}`);
+      const epic = await this.epicRepository.findOne({ 
+        where: { id: epicId } 
+      });
+      
+      if (!epic) {
+        this.logger.warn(`Épica no encontrada con ID: ${epicId}`);
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: `Epic con ID ${epicId} no encontrado`,
+        });
+      }
+
+      this.logger.debug(`Buscando issues para la épica: ${epicId}`);
+      const issues = await this.issueRepository.find({
+        where: { 
+          epic: { id: epicId },
+          isDeleted: false 
+        },
+        relations: ['epic', 'product_backlog'],
+        order: {
+          createdAt: 'DESC'
+        }
+      });
+
+      this.logger.debug(`Se encontraron ${issues.length} issues para la épica ${epicId}`);
+      
+      return issues;
+    } catch (error) {
+      this.logger.error(`Error al obtener issues de la épica ${epicId}:`, error.stack);
+      if (error instanceof RpcException) {
+        throw error;
+      }
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: `Error al obtener los issues de la épica: ${error.message}`,
+      });
     }
   }
 }

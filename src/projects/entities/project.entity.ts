@@ -25,7 +25,7 @@ export class Project {
 
   @Column({
     type: 'enum',
-    enum: ['completed', 'in-progress', 'on-hold'],
+    enum: ['completed', 'in-progress'],
     default: 'in-progress',
   })
   status: string;

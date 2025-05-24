@@ -23,9 +23,9 @@ export class ProductBacklogController {
 
   @MessagePattern('product-backlog.getBacklogIssues')
   async getBacklogIssues(
-    @Payload() payload: { backlogId: string; filters?: { status?: string } },
-  ): Promise<Issue[]> {
-    console.log(payload);
+    @Payload() payload: { backlogId: string; filters?: { page?: number; limit?: number } },
+  ): Promise<{ issues: Issue[]; total: number }> {
+    console.log("Controller received payload:", payload);
     return this.productBacklogService.getBacklogIssues(
       payload.backlogId,
       payload.filters,
@@ -62,5 +62,15 @@ export class ProductBacklogController {
     @Payload() payload: { issueId: string },
   ): Promise<Issue> {
     return this.productBacklogService.removeIssueFromBacklog(payload.issueId);
+  }
+
+  @MessagePattern('product-backlog.getProjectStats')
+  async getProjectStats(
+    @Payload() payload: { projectId: string },
+  ): Promise<{ total: number; completed: number; progress: number }> {
+    console.log("Getting project stats for project:", payload.projectId);
+    return this.productBacklogService.getProjectStats(
+      payload.projectId,
+    );
   }
 }

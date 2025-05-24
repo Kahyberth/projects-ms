@@ -22,7 +22,7 @@ export class Epic {
 
   @Column({
     type: 'enum',
-    enum: ['review', 'to-do', 'in-progress', 'resolved', 'closed'],
+    enum: ['review', 'to-do', 'in-progress', 'done', 'closed'],
     default: 'to-do',
   })
   status: string;

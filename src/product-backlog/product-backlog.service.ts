@@ -10,6 +10,7 @@ import { EntityManager, Repository } from 'typeorm';
 import { ProductBacklog } from './entities/product-backlog.entity';
 import { CreateProductBacklogDto } from './dto/create-product-backlog.dto';
 import { UpdateProductBacklogDto } from './dto/update-product-backlog.dto';
+import { IsNull, Like } from 'typeorm';
 
 @Injectable()
 export class ProductBacklogService {
@@ -117,19 +118,46 @@ export class ProductBacklogService {
    */
   async getBacklogIssues(
     backlogId: string,
-    filters?: { status?: string },
-  ): Promise<Issue[]> {
-    const query = this.issueRepository
-      .createQueryBuilder('issue')
-      .innerJoin('issue.product_backlog', 'backlog')
-      .where('backlog.id = :backlogId', { backlogId })
-      .andWhere('issue.isDeleted = :isDeleted', { isDeleted: false });
-
-    if (filters?.status) {
-      query.andWhere('issue.status = :status', { status: filters.status });
+    filters?: { page?: number; limit?: number }
+  ): Promise<{ issues: Issue[]; total: number }> {
+    try {
+      console.log('Service received filters:', filters);
+      
+      // Build base query
+      const query: any = {
+        where: { 
+          product_backlog: { id: backlogId },
+          isDeleted: false,
+          sprint: IsNull()
+        }
+      };
+      
+      // Get total count
+      const total = await this.issueRepository.count({
+        where: query.where
+      });
+      
+      console.log('Total issues:', total);
+      
+      // Apply pagination if provided
+      if (filters?.page && filters?.limit) {
+        query.skip = (filters.page - 1) * filters.limit;
+        query.take = filters.limit;
+      }
+      
+      // Execute query
+      const issues = await this.issueRepository.find({
+        ...query,
+        relations: ['product_backlog', 'sprint']
+      });
+      
+      console.log(`Found ${issues.length} issues for page ${filters?.page || 1}`);
+      
+      return { issues, total };
+    } catch (error) {
+      console.error('Error in getBacklogIssues:', error);
+      throw new Error(`Failed to get backlog issues: ${error.message}`);
     }
-
-    return query.orderBy('issue.story_points', 'DESC').getMany();
   }
 
   /**
@@ -244,5 +272,75 @@ export class ProductBacklogService {
     }
 
     return project.backlog;
+  }
+
+  /**
+   * Obtiene estadísticas de progreso del proyecto
+   * @param projectId ID del proyecto
+   * @returns Estadísticas de progreso: total de issues, completados y porcentaje
+   */
+  async getProjectStats(
+    projectId: string,
+  ): Promise<{ total: number; completed: number; progress: number }> {
+    console.log(`Backend: Getting stats for project: ${projectId}`);
+    
+    try {
+      // Primero, obtenemos el backlog del proyecto
+      const project = await this.projectRepository.findOne({
+        where: { id: projectId },
+        relations: ['backlog'],
+      });
+
+      if (!project || !project.backlog) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: 'Proyecto o backlog no encontrado',
+        });
+      }
+
+      // Consultamos todos los issues del backlog sin paginación
+      const backlogId = project.backlog.id;
+      
+      // Query para contar el total de issues
+      const totalCount = await this.issueRepository
+        .createQueryBuilder('issue')
+        .innerJoin('issue.product_backlog', 'backlog')
+        .where('backlog.id = :backlogId', { backlogId })
+        .andWhere('issue.isDeleted = :isDeleted', { isDeleted: false })
+        .getCount();
+      
+      // Query para contar los issues completados
+      const completedCount = await this.issueRepository
+        .createQueryBuilder('issue')
+        .innerJoin('issue.product_backlog', 'backlog')
+        .where('backlog.id = :backlogId', { backlogId })
+        .andWhere('issue.isDeleted = :isDeleted', { isDeleted: false })
+        .andWhere('issue.status IN (:...completedStatuses)', { 
+          completedStatuses: ['done', 'closed'] 
+        })
+        .getCount();
+      
+      // Calcular el porcentaje de progreso
+      const progress = totalCount > 0 
+        ? Math.round((completedCount / totalCount) * 100) 
+        : 0;
+      
+      console.log(`Backend: Project ${projectId} stats - Total: ${totalCount}, Completed: ${completedCount}, Progress: ${progress}%`);
+      
+      return {
+        total: totalCount,
+        completed: completedCount,
+        progress
+      };
+    } catch (error) {
+      console.error(`Error getting project stats:`, error);
+      if (error instanceof RpcException) {
+        throw error;
+      }
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Error al obtener estadísticas del proyecto',
+      });
+    }
   }
 }

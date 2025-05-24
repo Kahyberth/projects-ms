@@ -276,27 +276,124 @@ export class ProjectsService {
     }
   }
 
-  
-  /**
+   /**
    * @async
    * @author Kahyberth
-   * @description Gets all the Projects were created
-   * @returns Promise<Project[]>
+   * @description Gets all the Projects a user is member of
+   * @param userId - User ID
+   * @param page - Page number (starts from 1)
+   * @param limit - Number of items per page
+   * @returns Promise<{ data: Project[], meta: { total, totalPages, page, perPage } }>
    */
-  async getAllProjects(): Promise<Project[]> {
-    console.log('getAllProjects');
-    const projects = await this.projectRepository.find({
-      where: {
-        is_available: true,
-      },
-      relations: ['members', 'backlog', 'sprint', 'logging'],
-      order: {
-        createdAt: 'DESC',
-      },
-    });
-    console.log(projects);
-    return projects;
+   async getAllProjectsByUser(userId: string, page: number = 1, limit: number = 10): Promise<any> {
+    const user = await this.findUserById(userId);
+
+    if (!user) {
+      throw new RpcException('User not found');
+    }
+
+    try {
+      const skip = (page - 1) * limit;
+
+      // Usar query builder para obtener solo los proyectos donde el usuario es miembro
+      const query = this.projectRepository
+        .createQueryBuilder('project')
+        .innerJoinAndSelect('project.members', 'member', 'member.user_id = :userId', { userId })
+        .where('project.is_available = :isAvailable', { isAvailable: true })
+        .orderBy('project.createdAt', 'DESC')
+        .skip(skip)
+        .take(limit);
+
+      // Obtener el total de proyectos para la paginación
+      const totalQuery = this.projectRepository
+        .createQueryBuilder('project')
+        .innerJoin('project.members', 'member', 'member.user_id = :userId', { userId })
+        .where('project.is_available = :isAvailable', { isAvailable: true });
+
+      const [projects, total] = await Promise.all([
+        query.getMany(),
+        totalQuery.getCount()
+      ]);
+
+      // Calcular el total de páginas
+      const totalPages = Math.ceil(total / limit);
+
+      this.logger.log(`Found ${projects.length} projects for user ${userId} (page ${page} of ${totalPages})`);
+
+      // Return data with pagination metadata
+      return {
+        data: projects,
+        meta: {
+          total,
+          totalPages,
+          page,
+          perPage: limit
+        }
+      };
+    } catch (error) {
+      this.logger.error('Error getting projects by user', error.stack);
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Error al obtener los proyectos del usuario',
+      });
+    }
   }
+
+  
+  // /**
+  //  * @async
+  //  * @author Kahyberth
+  //  * @description Gets all the Projects were created
+  //  * @returns Promise<Project[]>
+  //  */
+  // async getAllProjects(): Promise<Project[]> {
+  //   console.log('getAllProjects');
+  //   const projects = await this.projectRepository.find({
+  //     where: {
+  //       is_available: true,
+  //     },
+  //     relations: ['members', 'backlog', 'sprint', 'logging'],
+  //     order: {
+  //       createdAt: 'DESC',
+  //     },
+  //   });
+  //   console.log(projects);
+  //   return projects;
+  // }
+
+    /**
+   * @async
+   * @author Kahyberth
+   * @description Gets all the Projects were created with pagination
+   * @param page - Page number (starts from 1)
+   * @param limit - Number of items per page
+   * @returns Promise<{ data: Project[], total: number, page: number, limit: number }>
+   */
+    async getAllProjects(
+      page: number = 1,
+      limit: number = 10,
+    ): Promise<{ data: Project[]; total: number; page: number; limit: number }> {
+      const skip = (page - 1) * limit;
+  
+      const [data, total] = await this.projectRepository.findAndCount({
+        where: {
+          is_available: true,
+        },
+        relations: ['members', 'backlog', 'sprint', 'logging'],
+        order: {
+          createdAt: 'DESC',
+        },
+        skip,
+        take: limit,
+      });
+  
+      return {
+        data,
+        total,
+        page,
+        limit,
+      };
+    }
 
   /**
    * @async
