@@ -1,11 +1,17 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
-import { catchError, lastValueFrom, timeout } from 'rxjs';
-import { Repository } from 'typeorm';
+import { catchError, firstValueFrom, lastValueFrom, timeout } from 'rxjs';
+import { DataSource, Repository } from 'typeorm';
 import { UpdateIssueDto } from './dto/update-issue.dto';
 import { Issue } from './entities/issue.entity';
-
+import { Project } from 'src/projects/entities/project.entity';
+import { Members } from 'src/projects/entities/members.entity';
+import { Comments } from './entities/comments.entity';
+import { User } from 'src/interfaces/user.interface';
+import { CreateCommentDto } from './dto/create-comment.dto';
+import { UpdateCommentDto } from './dto/update-comment.dto';
+import { Epic } from './entities/epic.entity';
 @Injectable()
 export class issuesService {
   private readonly logger = new Logger(issuesService.name);
@@ -13,46 +19,31 @@ export class issuesService {
     @InjectRepository(Issue)
     private readonly issueRepository: Repository<Issue>,
     @Inject('NATS_SERVICE') private readonly client: ClientProxy,
+    @InjectRepository(Project)
+    private readonly projectRepository: Repository<Project>,
+    @InjectRepository(Comments)
+    private readonly commentsRepository: Repository<Comments>,
+    @InjectRepository(Epic)
+    private readonly epicRepository: Repository<Epic>,
+    private readonly dataSource: DataSource,
   ) {}
 
-  /**
-   * Create a new issue
-   * @param payload
-   * @returns
-   */
-
-  /**
-   * Read all issues
-   * @param payload
-   * @returns
-   */
-  async findAll(): Promise<Issue[]> {
-    try {
-      return await this.issueRepository.find({
-        where: { isDeleted: false },
-        order: { createdAt: 'DESC' },
-      });
-    } catch (error) {
-      this.logger.error('Error al obtener issues', error.stack);
-      throw new RpcException({
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: 'Error al obtener issues',
-      });
-    }
-  }
-
+  
+ 
   async findOne(id: string): Promise<Issue> {
     try {
-      const issue = await this.issueRepository.findOne({
-        where: { id, isDeleted: false },
-      });
 
+      const issue = await this.issueRepository.findOne({ 
+        where: { id, isDeleted: false } 
+      });
+      
       if (!issue) {
         throw new RpcException({
           status: HttpStatus.NOT_FOUND,
           message: `Issue con ID ${id} no encontrado`,
         });
       }
+      
       return issue;
     } catch (error) {
       this.logger.error(`Error al buscar issue ${id}`, error.stack);
@@ -65,7 +56,7 @@ export class issuesService {
       });
     }
   }
-
+  
   /**
    * Obtener issues asignados a un usuario
    * @param userId ID del usuario asignado
@@ -75,9 +66,9 @@ export class issuesService {
       const issues = await this.issueRepository.find({
         where: {
           assignedTo: userId,
-          isDeleted: false,
+          isDeleted: false
         },
-        order: { createdAt: 'DESC' },
+        order: { createdAt: 'DESC' }
       });
 
       if (issues.length === 0) {
@@ -89,67 +80,67 @@ export class issuesService {
 
       return issues;
     } catch (error) {
-      this.logger.error(
-        `Error al obtener issues del usuario ${userId}`,
-        error.stack,
-      );
+      this.logger.error(`Error al obtener issues del usuario ${userId}`, error.stack);
+      
 
-      // Si ya es un RpcException, lo relanzamos
       if (error instanceof RpcException) {
         throw error;
       }
-
+      
       throw new RpcException({
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         message: 'Error al obtener issues del usuario',
       });
     }
-  }
+}
 
-  /**
-   * Obtener issues de un product backlog (sin filtros adicionales)
-   * @param BacklogId ID del product backlog
-   */
-  async findIssuesByBacklog(backlogId: string): Promise<Issue[]> {
+  async update(id: string, updateIssueDto: UpdateIssueDto, userId: string): Promise<Issue> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     try {
-      const issues = await this.issueRepository.find({
-        where: {
-          product_backlog: { id: backlogId },
-          isDeleted: false,
-        },
-        order: { createdAt: 'DESC' },
+      this.logger.debug(`Updating issue ${id} with data: ${JSON.stringify(updateIssueDto)}`);
+      const issue = await queryRunner.manager.findOne(Issue, {
+        where: { id, isDeleted: false },
+        relations: ['product_backlog']
       });
 
-      if (issues.length === 0) {
+      if (!issue) {
         throw new RpcException({
           status: HttpStatus.NOT_FOUND,
-          message: 'No se encontraron issues en este product backlog',
+          message: `Issue con ID ${id} no encontrado`,
         });
       }
 
-      return issues;
-    } catch (error) {
-      this.logger.error(
-        `Error al obtener issues del backlog ${backlogId}`,
-        error.stack,
-      );
-
-      if (error instanceof RpcException) {
-        throw error;
+      if (!issue.product_backlog) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: 'Issue does not have an associated product backlog',
+        });
       }
 
-      throw new RpcException({
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: 'Error al obtener issues del backlog',
+      const isMember = await queryRunner.manager.findOne(Members, {
+        where: { 
+          user_id: userId,
+          project: {
+            backlog: {
+              id: issue.product_backlog.id
+            }
+          }
+        },
+        relations: ['project', 'project.backlog']
       });
-    }
-  }
 
-  async update(id: string, updateIssueDto: UpdateIssueDto): Promise<Issue> {
-    try {
-      const issue = await this.findOne(id);
+      if (!isMember) {
+        throw new RpcException({
+          status: HttpStatus.FORBIDDEN,
+          message: 'You are not a member of this project',
+        });
+      }
 
       if (updateIssueDto.assignedTo) {
+        this.logger.debug(`Verifying new assignee: ${updateIssueDto.assignedTo}`);
         const isValidUser = await this.verifyUser(updateIssueDto.assignedTo);
         if (!isValidUser) {
           throw new RpcException({
@@ -157,27 +148,46 @@ export class issuesService {
             message: 'El usuario asignado no existe',
           });
         }
+
+        this.client.emit('notification.issue.assigned', {
+          userId: updateIssueDto.assignedTo,
+          issueData: {
+            id: issue.id,
+            title: issue.title,
+            description: issue.description,
+            code: issue.code,
+            status: issue.status,
+            priority: issue.priority,
+            type: issue.type,
+          }
+        });
       }
 
-      const updatedIssue = this.issueRepository.merge(issue, {
+      const updatedIssue = queryRunner.manager.merge(Issue, issue, {
         ...updateIssueDto,
         updatedAt: new Date(),
-        assignedTo: updateIssueDto.assignedTo || issue.assignedTo,
+        assignedTo: updateIssueDto.userId || issue.assignedTo,
+        epic: updateIssueDto.epicId ? { id: updateIssueDto.epicId } : null,
       });
 
-      return await this.issueRepository.save(updatedIssue);
+      const savedIssue = await queryRunner.manager.save(updatedIssue);
+      await queryRunner.commitTransaction();
+      return savedIssue;
     } catch (error) {
+      await queryRunner.rollbackTransaction();
       this.logger.error(`Error al actualizar issue ${id}`, error.stack);
       throw error;
+    } finally {
+      await queryRunner.release();
     }
   }
 
   async remove(id: string): Promise<{ message: string }> {
     try {
-      const issue = await this.issueRepository.findOne({
-        where: { id, isDeleted: false },
+      const issue = await this.issueRepository.findOne({ 
+        where: { id, isDeleted: false } 
       });
-
+      
       if (!issue) {
         throw new RpcException({
           status: HttpStatus.NOT_FOUND,
@@ -201,64 +211,231 @@ export class issuesService {
     }
   }
 
-  private async verifyUser(userId: string): Promise<boolean> {
+  private async verifyUser(userId: string): Promise<User> {
+    console.log('userId', userId)
+    return await firstValueFrom(
+      this.client.send('auth.find.user.by.id', userId).pipe(
+        catchError((error) => {
+          this.logger.error(`Error fetching user ${userId}`, error.stack);
+          throw error;
+        }),
+      ),
+    );
+  }
+
+  async createComment(createCommentDto: CreateCommentDto): Promise<Comments> {
     try {
-      this.logger.debug(`Intentando verificar usuario ${userId}`);
+      const { issue_id, user_id, comment } = createCommentDto;
+      this.logger.debug(`Creating comment for issue ${issue_id} by user ${user_id}`);
 
-      const user = await lastValueFrom(
-        this.client.send('auth.get.profile', userId).pipe(
-          timeout(5000),
-          catchError((error) => {
-            this.logger.error(`Error verificando usuario ${userId}:`, error);
-            throw new RpcException({
-              status: HttpStatus.INTERNAL_SERVER_ERROR,
-              message: `Error al verificar usuario: ${error.message}`,
-            });
-          }),
-        ),
-      );
-
-      if (!user) {
-        this.logger.warn(`Usuario ${userId} no encontrado`);
-        return false;
+      const issue = await this.findOne(issue_id);
+      if (!issue) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: 'Issue no encontrado',
+        });
       }
 
-      this.logger.debug(`Usuario ${userId} verificado exitosamente`);
-      return true;
+      this.logger.debug(`Verifying comment author: ${user_id}`);
+      const userExists = await this.verifyUser(user_id);
+      if (!userExists) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: 'Usuario no encontrado',
+        });
+      }
+
+      const newComment = this.commentsRepository.create({
+        comment,
+        user_id,
+        issue,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      return await this.commentsRepository.save(newComment);
     } catch (error) {
-      this.logger.error(`Error en verifyUser para ${userId}`, error.stack);
-      return false;
+      this.logger.error(`Error al crear comentario: ${error.message}`, error.stack);
+      throw error;
     }
   }
 
-  private async verifyProjectMembership(
-    projectId: string,
-    userId: string,
-  ): Promise<boolean> {
-    // TODO: Eliminar este mock cuando la parte de projects esté listo
-    this.logger.warn(
-      '⚠️ Usando mock de verificación de proyecto - Reemplazar cuando el servicio de projects esté disponible',
-    );
+  async getCommentsByIssue(issueId: string): Promise<Comments[]> {
+    try {
 
-    // Implementación temporal:
-    // - Devuelve true por defecto para permitir el flujo
-    // - Registra en logs para identificar usos
-    return true;
+      const comments = await this.commentsRepository.find({
+        where: { issue: { id: issueId } },
+        order: { createdAt: 'DESC' },
+      });
 
-    /* Implementación final (descomentar luego):
-    return lastValueFrom(
-      this.client.send('projects.verify_member', { projectId, userId })
-        .pipe(timeout(3000))
-    */
+      return comments;
+    } catch (error) {
+      this.logger.error(`Error al obtener comentarios del issue ${issueId}`, error.stack);
+      throw error;
+    }
+  }
+
+  async updateComment(commentId: string, updateCommentDto: UpdateCommentDto): Promise<Comments> {
+    try {
+
+      const comment = await this.commentsRepository.findOne({
+        where: { id: commentId },
+      });
+
+      if (!comment) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: 'Comentario no encontrado',
+        });
+      }
+
+      const updatedComment = this.commentsRepository.merge(comment, {
+        ...updateCommentDto,
+        updatedAt: new Date(),
+      });
+
+      return await this.commentsRepository.save(updatedComment);
+    } catch (error) {
+      this.logger.error(`Error al actualizar comentario ${commentId}`, error.stack);
+      throw error;
+    }
+  }
+
+  async deleteComment(commentId: string): Promise<{ message: string }> {
+    try {
+
+      const comment = await this.commentsRepository.findOne({
+        where: { id: commentId },
+        relations: ['issue'],
+      });
+
+      if (!comment) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: 'Comentario no encontrado',
+        });
+      }
+
+      // Verificar que el issue asociado no esté eliminado
+      if (comment.issue.isDeleted) {
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: 'No se puede eliminar un comentario de un issue eliminado',
+        });
+      }
+
+      await this.commentsRepository.remove(comment);
+      return { message: 'Comentario eliminado exitosamente' };
+    } catch (error) {
+      this.logger.error(`Error al eliminar comentario ${commentId}`, error.stack);
+      if (error instanceof RpcException) {
+        throw error;
+      }
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Error al eliminar el comentario',
+      });
+    }
   }
 
   /**
+   * Get the last issue number for a specific project
+   * @param projectId Project ID
+   * @returns Last issue number
+   */
+  async getLastIssueNumber(projectId: string): Promise<number> {
+    try {
+      const project = await this.projectRepository.findOne({
+        where: { id: projectId }
+      });
+
+      if (!project) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: `Project with ID ${projectId} not found`,
+        });
+      }
+
+      const projectKey = project.project_key;
+
+      // Find all issues for this project
+      const issues = await this.issueRepository
+        .createQueryBuilder('issue')
+        .innerJoin('issue.product_backlog', 'backlog')
+        .innerJoin('backlog.project', 'project')
+        .where('project.id = :projectId', { projectId })
+        .getMany();
+      
+      let maxNumber = 0;
+      issues.forEach(issue => {
+        if (issue.code && issue.code.startsWith(`${projectKey}-`)) {
+          const numberStr = issue.code.substring(projectKey.length + 1);
+          const number = parseInt(numberStr, 10);
+          if (!isNaN(number) && number > maxNumber) {
+            maxNumber = number;
+          }
+        }
+      });
+
+      return maxNumber;
+    } catch (error) {
+      this.logger.error(`Error getting last issue number: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  async getIssuesByEpic(epicId: string): Promise<Issue[]> {
+    try {
+
+      this.logger.debug(`Buscando épica con ID: ${epicId}`);
+      const epic = await this.epicRepository.findOne({ 
+        where: { id: epicId } 
+      });
+      
+      if (!epic) {
+        this.logger.warn(`Épica no encontrada con ID: ${epicId}`);
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: `Epic con ID ${epicId} no encontrado`,
+        });
+      }
+
+      this.logger.debug(`Buscando issues para la épica: ${epicId}`);
+      const issues = await this.issueRepository.find({
+        where: { 
+          epic: { id: epicId },
+          isDeleted: false 
+        },
+        relations: ['epic', 'product_backlog'],
+        order: {
+          createdAt: 'DESC'
+        }
+      });
+
+      this.logger.debug(`Se encontraron ${issues.length} issues para la épica ${epicId}`);
+      
+      return issues;
+    } catch (error) {
+      this.logger.error(`Error al obtener issues de la épica ${epicId}:`, error.stack);
+      if (error instanceof RpcException) {
+        throw error;
+      }
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: `Error al obtener los issues de la épica: ${error.message}`,
+      });
+    }
+  }
+
+
+
+   /**
    * Actualiza el status de una issue
    * @param id ID de la issue
    * @param newStatus Nuevo status de la issue
    * @returns Issue actualizada
    */
-  async updateIssueStatus(id: string, newStatus: string): Promise<Issue> {
+   async updateIssueStatus(id: string, newStatus: string): Promise<Issue> {
     try {
       const issue = await this.findOne(id);
       console.log(newStatus);
@@ -277,4 +454,8 @@ export class issuesService {
       throw error;
     }
   }
+
+
+
+
 }

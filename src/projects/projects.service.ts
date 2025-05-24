@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
 import { catchError, firstValueFrom } from 'rxjs';
@@ -11,6 +11,7 @@ import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { Members } from './entities/members.entity';
 import { Project } from './entities/project.entity';
+import { InviteMemberDto } from './dto/invite-member.dto';
 @Injectable()
 export class ProjectsService {
   private readonly logger = new Logger(ProjectsService.name);
@@ -65,8 +66,8 @@ export class ProjectsService {
 
       const savedProject = await this.projectRepository.save(project);
 
-      console.log("Created by",dto.created_by);
-      
+      console.log('Created by', dto.created_by);
+
       const creatorMember = this.membersRepository.create({
         user_id: dto.created_by,
         project: savedProject,
@@ -216,9 +217,70 @@ export class ProjectsService {
     return this.projectRepository.save(updatedProject);
   }
 
+  //TODO: Validación para que no cualquier usuario pueda invitar a un miembro a un proyecto
+  /**
+   * @author Kevin
+   * @description Invita a un miembro a un proyecto y envía un correo electrónico de invitación
+   * @param inviteDto Datos de la invitación
+   * @returns La membresía creada
+   */
+  async inviteMemberToProject(inviteDto: InviteMemberDto): Promise<Members> {
+    const { projectId, userId, email, invitedUserId } = inviteDto;
+    const invitedUser = await this.findUserById(invitedUserId);
+    const user = await this.findUserById(userId);
 
+    if (!email) throw new RpcException('Email is required');
 
-  
+    if (!invitedUser) {
+      throw new RpcException('User to invite not found');
+    }
+
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId, is_available: true },
+    });
+
+    if (!project) {
+      throw new RpcException('Project not found or unavailable');
+    }
+
+    const existing = await this.membersRepository.findOne({
+      where: { user_id: invitedUserId, project: { id: projectId } },
+      relations: ['project'],
+    });
+
+    if (existing) {
+      throw new RpcException('User is already a member of this project');
+    }
+
+    const team = await this.findTeamById(project.team_id);
+
+    try {
+      const member = this.membersRepository.create({
+        user_id: invitedUserId,
+        project,
+        joinedAt: new Date(),
+      });
+
+      const savedMember = await this.membersRepository.save(member);
+
+      const payload = {
+        host: user?.name,
+        invitedEmail: email,
+        invitedName: invitedUser?.name,
+        projectName: project.name,
+        projectId: project.id,
+        teamName: team.name,
+        link: 'http://localhost:5173/dashboard/projects',
+      };
+
+      await this.sendInvitationService.viewProjectInvitation(payload);
+
+      return savedMember;
+    } catch (error) {
+      this.logger.error(`Error inviting member to project: ${error.message}`);
+      throw new RpcException(`Failed to invite member: ${error.message}`);
+    }
+  }
 
   /**
    * @async
@@ -320,42 +382,6 @@ export class ProjectsService {
    * @param userId
    * @returns
    */
-  async inviteMemberToProject(
-    projectId: string,
-    userId: string,
-  ): Promise<Members> {
-    const project = await this.projectRepository.findOne({
-      where: { id: projectId, is_available: true },
-    });
-
-    if (!project) {
-      throw new RpcException('Project not found or unavailable');
-    }
-
-    const existing = await this.membersRepository.findOne({
-      where: { user_id: userId, project: { id: projectId } },
-      relations: ['project'],
-    });
-
-    if (existing) {
-      throw new RpcException('User is already a member of this project');
-    }
-
-    const member = this.membersRepository.create({
-      user_id: userId,
-      project,
-      joinedAt: new Date(),
-    });
-
-    return this.membersRepository.save(member);
-  }
-
-  /**
-   * @author Kahyberth
-   * @param projectId
-   * @param userId
-   * @returns
-   */
   async removeMemberFromProject(
     projectId: string,
     userId: string,
@@ -420,16 +446,45 @@ export class ProjectsService {
     return project;
   }
 
+  // /**
+  //  * @author Kahyberth
+  //  * @param userId
+  //  * @param page
+  //  * @param limit
+  //  * @description It is responsible for getting all the projects where the user is a member
+  //  * @returns Promise<Project[]>
+  //  */
+  // async getAllProjectsByUser(
+  //   userId: string,
+  //   page: number = 1,
+  //   limit: number = 10,
+  // ): Promise<Project[]> {
+  //   const user = await this.findUserById(userId);
+
+  //   if (!user) {
+  //     throw new RpcException('User not found');
+  //   }
+
+  //   try {
+  //     const projects = await this.getAllProjects(page, limit);
+
+  //     const projectsWithUsers = projects.data.map((project) => {
+  //       project.members = project.members.filter(
+  //         (member) => member.user_id === userId,
+  //       );  // ---> []
+  //       return project;
+  //     });
+
+  //     return projectsWithUsers;
+  //   } catch (error) {
+  //     this.logger.error('Error getting projects by user', error.stack);
+  //     throw error;
+  //   }
+  // }
+
   
-  /**
-   * @author Kahyberth
-   * @param userId
-   * @param page
-   * @param limit
-   * @description It is responsible for getting all the projects where the user is a member
-   * @returns Promise<Project[]>
-   */
-  async getAllProjectsByUser(userId: string, page: number = 1, limit: number = 10): Promise<Project[]> {
+
+  async getAllProjectsByUser(userId: string, page: number = 1, limit: number = 10): Promise<any> {
     const user = await this.findUserById(userId);
 
     if (!user) {
@@ -437,21 +492,51 @@ export class ProjectsService {
     }
 
     try {
-      const projects = await this.getAllProjects(page, limit);
+      const skip = (page - 1) * limit;
 
-      const projectsWithUsers = projects.data.map((project) => {
-        project.members = project.members.filter(
-          (member) => member.user_id === userId,
-        );
-        return project;
-      });
 
-      return projectsWithUsers;
+      const query = this.projectRepository
+        .createQueryBuilder('project')
+        .innerJoinAndSelect('project.members', 'member', 'member.user_id = :userId', { userId })
+        .where('project.is_available = :isAvailable', { isAvailable: true })
+        .orderBy('project.createdAt', 'DESC')
+        .skip(skip)
+        .take(limit);
+
+
+      const totalQuery = this.projectRepository
+        .createQueryBuilder('project')
+        .innerJoin('project.members', 'member', 'member.user_id = :userId', { userId })
+        .where('project.is_available = :isAvailable', { isAvailable: true });
+
+      const [projects, total] = await Promise.all([
+        query.getMany(),
+        totalQuery.getCount()
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      this.logger.log(`Found ${projects.length} projects for user ${userId} (page ${page} of ${totalPages})`);
+
+      return {
+        data: projects,
+        meta: {
+          total,
+          totalPages,
+          page,
+          perPage: limit
+        }
+      };
     } catch (error) {
       this.logger.error('Error getting projects by user', error.stack);
-      throw error;
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Error al obtener los proyectos del usuario',
+      });
     }
   }
+
+
 
   /**
    * @author Kahyberth
@@ -478,7 +563,11 @@ export class ProjectsService {
    * @param limit cantidad por página (por defecto 10)
    * @returns Promise<{ data: Members[], total: number, page: number, limit: number }>
    */
-  async getProjectMembersPaginated(projectId: string, page: number = 1, limit: number = 10): Promise<{ data: Members[]; total: number; page: number; limit: number }> {
+  async getProjectMembersPaginated(
+    projectId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{ data: Members[]; total: number; page: number; limit: number }> {
     const skip = (page - 1) * limit;
     const [data, total] = await this.membersRepository.findAndCount({
       where: { project: { id: projectId } },

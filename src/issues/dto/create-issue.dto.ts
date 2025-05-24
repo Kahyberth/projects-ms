@@ -69,4 +69,9 @@ export class CreateIssueDto {
   @IsBoolean()
   @IsOptional()
   isDeleted?: boolean;
+
+
+  @IsUUID()
+  @IsOptional()
+  epicId?: string;
 }

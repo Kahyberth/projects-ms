@@ -7,11 +7,6 @@ import { issuesService } from './issues.service';
 export class issuesController {
   constructor(private readonly issuesService: issuesService) {}
 
-  @MessagePattern('issue.find.all')
-  findAll() {
-    return this.issuesService.findAll();
-  }
-
   @MessagePattern('issue.find.one')
   findOne(@Payload() id: string) {
     return this.issuesService.findOne(id);
@@ -19,7 +14,7 @@ export class issuesController {
 
   @MessagePattern('issue.update')
   update(@Payload() data: { id: string; updateDto: UpdateIssueDto }) {
-    return this.issuesService.update(data.id, data.updateDto);
+    return this.issuesService.update(data.id, data.updateDto, data.updateDto.userId);
   }
 
   @MessagePattern('issue.remove')
@@ -32,14 +27,16 @@ export class issuesController {
     return this.issuesService.findIssuesByUser(assignedTo);
   }
 
-  @MessagePattern('issues.by.backlog')
-  findByBacklog(@Payload() backlogId: string) {
-    return this.issuesService.findIssuesByBacklog(backlogId);
-  }
-
   @MessagePattern('issues.update.status')
   async updateIssueStatus(@Payload() payload: { id: string; newStatus: string }) {
     console.log("Payload",payload);
     return this.issuesService.updateIssueStatus(payload.id, payload.newStatus);
   }
+
+  @MessagePattern('issues.by-epic')
+  async getIssuesByEpic(@Payload() epicId: string) {
+    console.log("Fetching issues by epic:", epicId);
+    return this.issuesService.getIssuesByEpic(epicId);
+  }
+
 }

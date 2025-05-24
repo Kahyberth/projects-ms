@@ -1,12 +1,15 @@
-import { OmitType, PartialType } from '@nestjs/mapped-types';
-import { IsUUID } from 'class-validator';
+import { PartialType, OmitType } from '@nestjs/mapped-types';
 import { CreateIssueDto } from './create-issue.dto';
+import { IsUUID, IsNotEmpty } from 'class-validator';
 
 export class UpdateIssueDto extends PartialType(
-  OmitType(CreateIssueDto, ['createdBy'] as const),
+  OmitType(CreateIssueDto, ['createdBy'] as const)
 ) {
   @IsUUID()
+  @IsNotEmpty()
   id: string;
-  newPriority: number;
-  issueId: string;
+
+  @IsUUID()
+  @IsNotEmpty()
+  userId: string;
 }

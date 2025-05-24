@@ -2,13 +2,13 @@ import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CreateIssueDto } from 'src/issues/dto/create-issue.dto';
-import { UpdateIssueDto } from 'src/issues/dto/update-issue.dto';
 import { Issue } from 'src/issues/entities/issue.entity';
 import { Project } from 'src/projects/entities/project.entity';
 import { Sprint } from 'src/sprint-backlog/entities/sprint.entity';
 import { EntityManager, Repository } from 'typeorm';
 import { ProductBacklog } from './entities/product-backlog.entity';
 import { SprintBacklog } from 'src/sprint-backlog/entities/sprint.backlog.entity';
+import { issuesService } from 'src/issues/issues.service';
 
 @Injectable()
 export class ProductBacklogService {
@@ -53,10 +53,57 @@ export class ProductBacklogService {
       in_product_backlog: true,
       in_sprint: false,
       product_backlog: productBacklog,
+      code: await this.generateIssueCode(productBacklogId),
     });
 
     await this.issueRepository.save(issue);
     return issue;
+  }
+
+
+
+   /**
+   * Generate a sequential issue code based on project key
+   * @param productBacklogId Project ID to get the key
+   * @returns Generated issue code
+   */
+   private async generateIssueCode(productBacklogId: string): Promise<string> {
+    try {
+      const project = await this.projectRepository.findOne({
+        where: { backlog: { id: productBacklogId } }
+      });
+
+      if (!project) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: `Project not found for backlog ${productBacklogId}`,
+        });
+      }
+
+      const projectKey = project.project_key;
+      const issues = await this.issueRepository.find({
+        where: { 
+          product_backlog: { id: productBacklogId }
+        }
+      });
+
+      let maxNumber = 0;
+      issues.forEach(issue => {
+        if (issue.code && issue.code.startsWith(`${projectKey}-`)) {
+          const numberStr = issue.code.substring(projectKey.length + 1);
+          const number = parseInt(numberStr, 10);
+          if (!isNaN(number) && number > maxNumber) {
+            maxNumber = number;
+          }
+        }
+      });
+
+      const nextNumber = maxNumber + 1;
+      return `${projectKey}-${nextNumber}`;
+    } catch (error) {
+      this.logger.error(`Error generating issue code: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   /**
@@ -126,28 +173,7 @@ export class ProductBacklogService {
     return query.orderBy('issue.story_points', 'DESC').getMany();
   }
 
-  /**
-   * Actualiza el orden de las issues de un product backlog
-   * @param updateOrderDto dto con el id de la issue y el nuevo orden
-   * @returns issue actualizada
-   */
-  async updateIssueOrder(updateOrderDto: UpdateIssueDto): Promise<Issue> {
-    await this.issueRepository.update(
-      { id: updateOrderDto.issueId },
-      { story_points: updateOrderDto.newPriority },
-    );
-    const issue = await this.issueRepository.findOne({
-      where: { id: updateOrderDto.issueId },
-    });
-    if (!issue) {
-      throw new RpcException({
-        status: HttpStatus.NOT_FOUND,
-        message: 'Issue no encontrado',
-      });
-    }
-    return issue;
-  }
-
+  
   /**
    * Busca issues en un product backlog
    * @param backlogId id del product backlog
@@ -184,11 +210,9 @@ export class ProductBacklogService {
       const issue = await manager.findOne(Issue, { where: { id: issueId }, relations: ['product_backlog', 'sprint_backlog'] });
       if (!issue) throw new RpcException({ status: 404, message: 'Issue no encontrada' });
 
-      // Quitar del product backlog
       issue.product_backlog = null;
       issue.in_product_backlog = false;
 
-      // Buscar o crear el sprint backlog correcto
       let sprintBacklog = await manager.findOne(SprintBacklog, { where: { sprint: { id: sprintId } }, relations: ['sprint'] });
       if (!sprintBacklog) {
         const sprint = await manager.findOne(Sprint, { where: { id: sprintId } });
@@ -197,7 +221,7 @@ export class ProductBacklogService {
         await manager.save(SprintBacklog, sprintBacklog);
       }
 
-      // Validar si la issue ya está en el sprint backlog destino
+
       if (issue.sprint_backlog && issue.sprint_backlog.id === sprintBacklog.id) {
         throw new RpcException({
           status: 400,
@@ -209,8 +233,6 @@ export class ProductBacklogService {
       issue.sprint = sprintBacklog.sprint;
       issue.in_sprint = true;
       
-      
-
       await manager.save(Issue, issue);
       return issue;
     });
@@ -227,7 +249,6 @@ export class ProductBacklogService {
       const issue = await manager.findOne(Issue, { where: { id: issueId }, relations: ['product_backlog', 'sprint_backlog', 'sprint_backlog.sprint'] });
       if (!issue) throw new RpcException({ status: 404, message: 'Issue no encontrada' });
 
-      // Validar si ya está en el product backlog destino
       if (issue.product_backlog && issue.product_backlog.id === productBacklogId) {
         throw new RpcException({
           status: 400,
@@ -235,7 +256,7 @@ export class ProductBacklogService {
         });
       }
 
-      // Validar que esté en un sprint backlog antes de moverla
+
       if (!issue.sprint_backlog) {
         throw new RpcException({
           status: 400,
@@ -243,7 +264,7 @@ export class ProductBacklogService {
         });
       }
 
-      // Validar si el sprint ya está iniciado
+ 
       if (issue.sprint_backlog.sprint && issue.sprint_backlog.sprint.isStarted) {
         throw new RpcException({
           status: 400,
@@ -251,12 +272,12 @@ export class ProductBacklogService {
         });
       }
 
-      // Quitar del sprint backlog
+
       issue.sprint_backlog = null;
       issue.in_sprint = false;
       issue.sprint = null;
 
-      // Asignar al product backlog correcto
+
       const productBacklog = await manager.findOne(ProductBacklog, { where: { id: productBacklogId } });
       if (!productBacklog) throw new RpcException({ status: 404, message: 'Product backlog no encontrado' });
 

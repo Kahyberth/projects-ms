@@ -34,7 +34,7 @@ export class Issue {
 
   @Column({
     type: 'enum',
-    enum: ['review', 'to-do', 'in-progress', 'resolved', 'closed'],
+    enum: ['review', 'to-do', 'in-progress', 'done', 'closed'],
     default: 'to-do',
   })
   status: string;
@@ -48,6 +48,9 @@ export class Issue {
 
   @Column({ type: 'boolean', default: false })
   in_sprint: boolean;
+
+  @Column({ type: 'varchar', length: 255 })
+  code: string;
 
   @Column({ type: 'boolean', default: false })
   in_product_backlog: boolean;
@@ -87,8 +90,8 @@ export class Issue {
   })
   product_backlog: ProductBacklog | null;
 
-  @ManyToOne(() => Epic, (epic) => epic.issue)
-  epic: Epic;
+  @ManyToOne(() => Epic, (epic) => epic.issue, { nullable: true })
+  epic: Epic | null;
 
   @ManyToOne(() => SprintBacklog, (sprint_backlog) => sprint_backlog.issues, { nullable: true })
   sprint_backlog: SprintBacklog | null;

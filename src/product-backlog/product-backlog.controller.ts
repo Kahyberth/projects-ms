@@ -52,11 +52,6 @@ export class ProductBacklogController {
     );
   }
 
-  @MessagePattern('product-backlog.updateIssueOrder')
-  async updateIssueOrder(@Payload() payload: UpdateIssueDto): Promise<Issue> {
-    return this.productBacklogService.updateIssueOrder(payload);
-  }
-
   @MessagePattern('product-backlog.searchIssues')
   async searchIssues(
     @Payload()

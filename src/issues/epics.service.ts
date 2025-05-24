@@ -1,11 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { RpcException } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not } from 'typeorm';
-import { Epic } from './entities/epic.entity';
+import { Not, Repository } from 'typeorm';
 import { CreateEpicDto } from './dto/create-epic.dto';
 import { UpdateEpicDto } from './dto/update-epic.dto';
-import { RpcException } from '@nestjs/microservices';
-import { HttpStatus } from '@nestjs/common';
+import { Epic } from './entities/epic.entity';
+import { ProductBacklog } from '../product-backlog/entities/product-backlog.entity';
 
 @Injectable()
 export class EpicsService {
@@ -14,15 +14,30 @@ export class EpicsService {
   constructor(
     @InjectRepository(Epic)
     private readonly epicRepository: Repository<Epic>,
+    @InjectRepository(ProductBacklog)
+    private readonly productBacklogRepository: Repository<ProductBacklog>,
   ) {}
 
   async create(createEpicDto: CreateEpicDto): Promise<Epic> {
+    console.log('entra a crear la épica')
     try {
+      const backlog = await this.productBacklogRepository.findOne({
+        where: { id: createEpicDto.productBacklogId }
+      });
+
+      if (!backlog) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: `Product backlog with ID ${createEpicDto.productBacklogId} not found`,
+        });
+      }
+
       const existingEpic = await this.epicRepository.findOne({
         where: {
           name: createEpicDto.name,
           productBacklog: { id: createEpicDto.productBacklogId }
-        }
+        },
+        relations: ['productBacklog'] 
       });
 
       if (existingEpic) {
@@ -37,6 +52,7 @@ export class EpicsService {
         status: createEpicDto.status || 'to-do',
         createdAt: new Date(),
         updatedAt: new Date(),
+        productBacklog: { id: createEpicDto.productBacklogId }
       });
 
       return await this.epicRepository.save(newEpic);
@@ -105,7 +121,19 @@ export class EpicsService {
 
   async update(id: string, updateEpicDto: UpdateEpicDto): Promise<Epic> {
     try {
-      const epic = await this.findOne(id);
+      const epic = await this.epicRepository.findOne({
+        where: { id },
+        relations: {
+          productBacklog: true
+        }
+      });
+
+      if (!epic) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: `Epic with ID ${id} not found`,
+        });
+      }
 
       if (updateEpicDto.name) {
         const existingEpic = await this.epicRepository.findOne({
