@@ -1,5 +1,5 @@
-import { Controller } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
+import { Controller, HttpStatus } from '@nestjs/common';
+import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
 import { UpdateIssueDto } from './dto/update-issue.dto';
 import { issuesService } from './issues.service';
 
@@ -14,7 +14,7 @@ export class issuesController {
 
   @MessagePattern('issue.update')
   update(@Payload() data: { id: string; updateDto: UpdateIssueDto }) {
-    return this.issuesService.update(data.id, data.updateDto, data.updateDto.userId);
+    return this.issuesService.update(data.id, data.updateDto);
   }
 
   @MessagePattern('issue.remove')

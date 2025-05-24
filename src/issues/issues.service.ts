@@ -94,7 +94,14 @@ export class issuesService {
     }
 }
 
-  async update(id: string, updateIssueDto: UpdateIssueDto, userId: string): Promise<Issue> {
+  async update(id: string, updateIssueDto: UpdateIssueDto): Promise<Issue> {
+    if (!updateIssueDto) {
+      throw new RpcException({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'No se proporcionaron datos para actualizar',
+      });
+    }
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -117,25 +124,6 @@ export class issuesService {
         throw new RpcException({
           status: HttpStatus.NOT_FOUND,
           message: 'Issue does not have an associated product backlog',
-        });
-      }
-
-      const isMember = await queryRunner.manager.findOne(Members, {
-        where: { 
-          user_id: userId,
-          project: {
-            backlog: {
-              id: issue.product_backlog.id
-            }
-          }
-        },
-        relations: ['project', 'project.backlog']
-      });
-
-      if (!isMember) {
-        throw new RpcException({
-          status: HttpStatus.FORBIDDEN,
-          message: 'You are not a member of this project',
         });
       }
 

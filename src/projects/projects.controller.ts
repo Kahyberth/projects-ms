@@ -37,7 +37,7 @@ export class ProjectsController {
   @MessagePattern('projects.members.paginated')
   getProjectMembersPaginated(@Payload() data: { projectId: string; page?: number; limit?: number }) {
     const { projectId, page, limit } = data;
-    return this.projectsService.getProjectMembersPaginated(projectId, page, limit);
+    return this.projectsService.getProjectMembers(projectId);
   }
 
 }
