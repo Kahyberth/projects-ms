@@ -19,7 +19,7 @@ export enum Status {
   REVIEW = 'review',
   TODO = 'to-do',
   IN_PROGRESS = 'in-progress',
-  RESOLVED = 'resolved',
+  RESOLVED = 'done',
   CLOSED = 'closed',
 }
 

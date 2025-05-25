@@ -626,46 +626,22 @@ export class ProjectsService {
     return {users, total, page, limit, totalPages };
   }
 
-
-
-
-
-
-
-
-
-async getMembersByTeamNotInProject(teamId: string): Promise<Members[]> {
-
-  try {
+  async getMembersByTeamNotInProject(teamId: string, projectId: string): Promise<Members[]> {
     const membersInProject = await this.membersRepository.find({
-      where: { project: { team_id: teamId } },
+      where: { 
+        project: { 
+          id: projectId,
+          team_id: teamId 
+        }
+      },
       relations: ['project'],
     });
-    
-    const memberIdsInProject = membersInProject.map(member => member.user_id);
+  
+    const userIdsInProject = membersInProject.map(member => member.user_id);
     const membersInTeam = await this.getMembersByTeam(teamId);
-    
-    const membersNotInProject = membersInTeam.filter(
-      teamMember => !memberIdsInProject.includes(teamMember.member.id)
+    const membersNotInProject = membersInTeam.filter(member =>
+      !userIdsInProject.includes(member.member.id)
     );
-    
     return membersNotInProject;
-  } catch (error) {
-    this.logger.error('Error getting members not in project:', error);
-    throw new RpcException({
-      status: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: 'Error al obtener los miembros no asignados al proyecto'
-    });
   }
-}
-
-
-
-
-
-
-
-
-
-
 }

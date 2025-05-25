@@ -41,9 +41,9 @@ export class ProjectsController {
   }
 
   @MessagePattern('projects.members.not.in.project')
-  getMembersByTeamNotInProject(@Payload() data: { teamId: string }) {
-    const { teamId } = data;
-    return this.projectsService.getMembersByTeamNotInProject(teamId);
+  getMembersByTeamNotInProject(@Payload() data: { teamId: string, projectId: string }) {
+    const { teamId, projectId } = data;
+    return this.projectsService.getMembersByTeamNotInProject(teamId, projectId);
   }
 
   @MessagePattern('projects.invite.member')
