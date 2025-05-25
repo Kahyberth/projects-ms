@@ -335,10 +335,10 @@ export class ProjectsService {
    * @param team_id
    * @returns Promise<Project[]>
    */
-  async findProjectById(team_id: string): Promise<Project[]> {
+  async findProjectById(projectId: string): Promise<Project[]> {
     const data = await this.projectRepository.find({
       where: {
-        team_id,
+        id: projectId,
         is_available: true,
       },
       relations: ['members', 'backlog', 'sprint', 'logging'],
