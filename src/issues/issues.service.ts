@@ -127,7 +127,7 @@ export class issuesService {
         });
       }
 
-      if (updateIssueDto.assignedTo) {
+      if (updateIssueDto.assignedTo && updateIssueDto.assignedTo !== issue.assignedTo) {
         this.logger.debug(`Verifying new assignee: ${updateIssueDto.assignedTo}`);
         const isValidUser = await this.verifyUser(updateIssueDto.assignedTo);
         if (!isValidUser) {
@@ -154,7 +154,7 @@ export class issuesService {
       const updatedIssue = queryRunner.manager.merge(Issue, issue, {
         ...updateIssueDto,
         updatedAt: new Date(),
-        assignedTo: updateIssueDto.userId || issue.assignedTo,
+        assignedTo: updateIssueDto.assignedTo || issue.assignedTo,
         epic: updateIssueDto.epicId ? { id: updateIssueDto.epicId } : null,
       });
 

@@ -47,6 +47,9 @@ import { SprintBacklogModule } from './sprint-backlog/sprint-backlog.module';
         IssueMetric,
       ],
       synchronize: true,
+      extra: {
+        ssl: true,
+      },
     }),
     ProductBacklogModule,
     SprintBacklogModule,
