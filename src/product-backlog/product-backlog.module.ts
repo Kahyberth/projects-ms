@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Epic } from 'src/issues/entities/epic.entity';
-import { Issue } from 'src/issues/entities/issue.entity';
-import { Project } from 'src/projects/entities/project.entity';
-import { Sprint } from 'src/sprint-backlog/entities/sprint.entity';
+import { Epic } from '../issues/entities/epic.entity';
+import { Issue } from '../issues/entities/issue.entity';
+import { Project } from '../projects/entities/project.entity';
+import { Sprint } from '../sprint-backlog/entities/sprint.entity';
 import { ProductBacklog } from './entities/product-backlog.entity';
 import { ProductBacklogController } from './product-backlog.controller';
 import { ProductBacklogService } from './product-backlog.service';
-import { SprintBacklog } from 'src/sprint-backlog/entities/sprint.backlog.entity';
+import { SprintBacklog } from '../sprint-backlog/entities/sprint.backlog.entity';
 @Module({
   controllers: [ProductBacklogController],
   providers: [ProductBacklogService],

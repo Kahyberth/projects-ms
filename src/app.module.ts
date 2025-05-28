@@ -46,6 +46,11 @@ import { SprintBacklogModule } from './sprint-backlog/sprint-backlog.module';
         ProjectMetric,
         IssueMetric,
       ],
+      extra: {
+        ssl: {
+          rejectUnauthorized: false,
+        },
+      },
       synchronize: true,
       extra: {
         ssl: true,

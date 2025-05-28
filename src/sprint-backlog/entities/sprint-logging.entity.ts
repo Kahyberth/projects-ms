@@ -1,6 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Sprint } from './sprint.entity';
-import { Issue } from 'src/issues/entities/issue.entity';
+import { Issue } from '../../issues/entities/issue.entity';
 
 @Entity()
 export class SprintLogging {

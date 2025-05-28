@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ProductBacklog } from 'src/product-backlog/entities/product-backlog.entity';
-import { SendInvitationService } from 'src/send-invitation/send-invitation.service';
+import { ProductBacklog } from '../product-backlog/entities/product-backlog.entity';
+import { SendInvitationService } from '../send-invitation/send-invitation.service';
 import { Members } from './entities/members.entity';
 import { Project } from './entities/project.entity';
 import { ProjectsController } from './projects.controller';
