@@ -1,7 +1,7 @@
-import { ProductBacklog } from 'src/product-backlog/entities/product-backlog.entity';
-import { SprintBacklog } from 'src/sprint-backlog/entities/sprint.backlog.entity';
-import { Sprint } from 'src/sprint-backlog/entities/sprint.entity';
-import { SprintLogging } from 'src/sprint-backlog/entities/sprint.logging.entity';
+import { ProductBacklog } from '../../product-backlog/entities/product-backlog.entity';
+import { SprintBacklog } from '../../sprint-backlog/entities/sprint.backlog.entity';
+import { Sprint } from '../../sprint-backlog/entities/sprint.entity';
+import { SprintLogging } from '../../sprint-backlog/entities/sprint.logging.entity';
 import {
   Column,
   Entity,

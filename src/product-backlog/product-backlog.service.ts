@@ -1,14 +1,14 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
-import { CreateIssueDto } from 'src/issues/dto/create-issue.dto';
-import { Issue } from 'src/issues/entities/issue.entity';
-import { Project } from 'src/projects/entities/project.entity';
-import { Sprint } from 'src/sprint-backlog/entities/sprint.entity';
+import { CreateIssueDto } from '../issues/dto/create-issue.dto';
+import { Issue } from '../issues/entities/issue.entity';
+import { Project } from '../projects/entities/project.entity';
+import { Sprint } from '../sprint-backlog/entities/sprint.entity';
 import { EntityManager, Repository } from 'typeorm';
 import { ProductBacklog } from './entities/product-backlog.entity';
-import { SprintBacklog } from 'src/sprint-backlog/entities/sprint.backlog.entity';
-import { issuesService } from 'src/issues/issues.service';
+import { SprintBacklog } from '../sprint-backlog/entities/sprint.backlog.entity';
+import { issuesService } from '../issues/issues.service';
 
 @Injectable()
 export class ProductBacklogService {

@@ -1,5 +1,5 @@
-import { ProductBacklog } from 'src/product-backlog/entities/product-backlog.entity';
-import { SprintLogging } from 'src/sprint-backlog/entities/sprint.logging.entity';
+import { ProductBacklog } from '../../product-backlog/entities/product-backlog.entity';
+import { SprintLogging } from '../../sprint-backlog/entities/sprint.logging.entity';
 import {
   Column,
   Entity,
