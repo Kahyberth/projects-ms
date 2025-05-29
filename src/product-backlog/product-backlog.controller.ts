@@ -34,7 +34,6 @@ export class ProductBacklogController {
       productBacklogId: string;
     },
   ): Promise<Issue> {
-    console.log(payload);
     return this.productBacklogService.addIssueToBacklog(
       payload.createIssueDto,
       payload.productBacklogId,
@@ -45,7 +44,6 @@ export class ProductBacklogController {
   async getBacklogIssues(
     @Payload() payload: { backlogId: string; filters?: { status?: string } },
   ): Promise<Issue[]> {
-    console.log(payload);
     return this.productBacklogService.getBacklogIssues(
       payload.backlogId,
       payload.filters,
@@ -92,4 +90,13 @@ export class ProductBacklogController {
       payload.productBacklogId,
     );
   }
+
+  @MessagePattern('product-backlog.getProjectStats')
+  async getProjectStats(
+    @Payload() payload: { projectId: string },
+  ): Promise<{ total: number; completed: number; progress: number }> {
+    return this.productBacklogService.getProjectStats(
+      payload.projectId,
+    );
+  }
 }

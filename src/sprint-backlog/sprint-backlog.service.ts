@@ -242,7 +242,9 @@ export class SprintBacklogService {
       .createQueryBuilder('issue')
       .innerJoin('issue.sprint_backlog', 'sprint_backlog')
       .innerJoin('sprint_backlog.sprint', 'sprint')
-      .where('sprint.id = :sprintId', { sprintId });
+      .where('sprint.id = :sprintId', { sprintId })
+      .andWhere('issue.isDeleted = :isDeleted', { isDeleted: false });
+
 
     if (filters?.status) {
       query.andWhere('issue.status = :status', { status: filters.status });
@@ -633,8 +635,6 @@ export class SprintBacklogService {
     );
   }
 
-
-
   /**
    * Get the transition history of an issue between sprints
    * @param issueId ID of the issue
@@ -682,5 +682,50 @@ export class SprintBacklogService {
     return transitions.reduce((total, transition) => {
       return total + (transition.storyPoints ?? 0);
     }, 0);
+  }
+
+  /**
+   * Obtiene todos los sprints de un proyecto
+   * @param projectId ID del proyecto
+   * @author Kevin
+   * @returns Lista de sprints
+   */
+  async getProjectSprints(projectId: string) {
+    try {
+      const sprints = await this.sprintRepository.find({
+        where: { project: { id: projectId } },
+        relations: ['project'],
+      });
+
+      if (!sprints) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: 'No se encontraron sprints para este proyecto',
+        });
+      }
+
+      // Obtener las issues para cada sprint
+      const sprintsWithIssues = await Promise.all(
+        sprints.map(async (sprint) => {
+          const { issues } = await this.getSprintBacklogIssues(sprint.id);
+          return {
+            ...sprint,
+            issues,
+            status: sprint.isStarted ? 'active' : 'inactive'
+          };
+        })
+      );
+
+      return sprintsWithIssues;
+    } catch (error) {
+      if (error instanceof RpcException) {
+        throw error;
+      }
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Error al obtener los sprints del proyecto',
+        error: error.message,
+      });
+    }
   }
 }

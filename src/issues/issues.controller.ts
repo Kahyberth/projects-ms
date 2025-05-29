@@ -2,6 +2,8 @@ import { Controller, HttpStatus } from '@nestjs/common';
 import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
 import { UpdateIssueDto } from './dto/update-issue.dto';
 import { issuesService } from './issues.service';
+import { CreateCommentDto } from './dto/create-comment.dto';
+import { UpdateCommentDto } from './dto/update-comment.dto';
 
 @Controller()
 export class issuesController {
@@ -37,6 +39,26 @@ export class issuesController {
   async getIssuesByEpic(@Payload() epicId: string) {
     console.log("Fetching issues by epic:", epicId);
     return this.issuesService.getIssuesByEpic(epicId);
+  }
+
+  @MessagePattern('issues.get.comments')
+  async getCommentsByIssue(@Payload() issueId: string) {
+    return this.issuesService.getCommentsByIssue(issueId);
+  }
+
+  @MessagePattern('issues.create.comment')
+  async createComment(@Payload() createCommentDto: CreateCommentDto) {
+    return this.issuesService.createComment(createCommentDto);
+  }
+
+  @MessagePattern('issues.update.comment')
+  async updateComment(@Payload() updateCommentDto: UpdateCommentDto) {
+    return this.issuesService.updateComment(updateCommentDto.id, updateCommentDto);
+  }
+
+  @MessagePattern('issues.delete.comment')
+  async deleteComment(@Payload() id: string) {
+    return this.issuesService.deleteComment(id);
   }
 
 }

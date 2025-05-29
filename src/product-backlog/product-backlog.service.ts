@@ -164,7 +164,8 @@ export class ProductBacklogService {
     const query = this.issueRepository
       .createQueryBuilder('issue')
       .innerJoin('issue.product_backlog', 'backlog')
-      .where('backlog.id = :backlogId', { backlogId });
+      .where('backlog.id = :backlogId', { backlogId })
+      .andWhere('issue.isDeleted = :isDeleted', { isDeleted: false });
 
     if (filters?.status) {
       query.andWhere('issue.status = :status', { status: filters.status });
@@ -330,4 +331,68 @@ export class ProductBacklogService {
 
     return project.backlog;
   }
+
+  /**
+   * Obtiene estadísticas de progreso del proyecto
+   * @param projectId ID del proyecto
+   * @returns Estadísticas de progreso: total de issues, completados y porcentaje
+   */
+  async getProjectStats(
+    projectId: string,
+  ): Promise<{ total: number; completed: number; progress: number }> {
+    
+    try {
+      const project = await this.projectRepository.findOne({
+        where: { id: projectId },
+        relations: ['backlog'],
+      });
+
+      if (!project || !project.backlog) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: 'Proyecto o backlog no encontrado',
+        });
+      }
+
+      const backlogId = project.backlog.id;
+      
+      const totalCount = await this.issueRepository
+        .createQueryBuilder('issue')
+        .innerJoin('issue.product_backlog', 'backlog')
+        .where('backlog.id = :backlogId', { backlogId })
+        .andWhere('issue.isDeleted = :isDeleted', { isDeleted: false })
+        .getCount();
+      
+      const completedCount = await this.issueRepository
+        .createQueryBuilder('issue')
+        .innerJoin('issue.product_backlog', 'backlog')
+        .where('backlog.id = :backlogId', { backlogId })
+        .andWhere('issue.isDeleted = :isDeleted', { isDeleted: false })
+        .andWhere('issue.status IN (:...completedStatuses)', { 
+          completedStatuses: ['done', 'closed'] 
+        })
+        .getCount();
+      
+      const progress = totalCount > 0 
+        ? Math.round((completedCount / totalCount) * 100) 
+        : 0;
+      
+      console.log(`Backend: Project ${projectId} stats - Total: ${totalCount}, Completed: ${completedCount}, Progress: ${progress}%`);
+      
+      return {
+        total: totalCount,
+        completed: completedCount,
+        progress
+      };
+    } catch (error) {
+      console.error("Error getting project stats:", error);
+      if (error instanceof RpcException) {
+        throw error;
+      }
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Error al obtener estadísticas del proyecto',
+      });
+    }
+  }
 }

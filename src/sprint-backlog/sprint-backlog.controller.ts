@@ -8,6 +8,11 @@ import { SprintBacklogService } from './sprint-backlog.service';
 export class SprintBacklogController {
   constructor(private readonly sprintBacklogService: SprintBacklogService) {}
 
+  @MessagePattern('sprints.get.project_sprints')
+  async getProjectSprints(@Payload() payload: { projectId: string }) {
+    return this.sprintBacklogService.getProjectSprints(payload.projectId);
+  }
+
   @MessagePattern('sprints.create.sprint')
   async createSprint(@Payload() createSprintDto: CreateSprintDto) {
     return this.sprintBacklogService.createSprint(createSprintDto);
@@ -54,8 +59,6 @@ export class SprintBacklogController {
       payload.filters,
     );
   }
-
-  // Endpoints relacionados con métricas
 
   @MessagePattern('sprints.get.sprint_metrics')
   async getSprintMetrics(

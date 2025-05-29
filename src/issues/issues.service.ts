@@ -110,7 +110,7 @@ export class issuesService {
       this.logger.debug(`Updating issue ${id} with data: ${JSON.stringify(updateIssueDto)}`);
       const issue = await queryRunner.manager.findOne(Issue, {
         where: { id, isDeleted: false },
-        relations: ['product_backlog']
+        relations: ['product_backlog', 'sprint']
       });
 
       if (!issue) {
@@ -120,15 +120,15 @@ export class issuesService {
         });
       }
 
-      if (!issue.product_backlog) {
+      // Issue should be either in a product backlog or in a sprint
+      if (!issue.product_backlog && !issue.sprint) {
         throw new RpcException({
           status: HttpStatus.NOT_FOUND,
-          message: 'Issue does not have an associated product backlog',
+          message: 'Issue must be associated with either a product backlog or a sprint',
         });
       }
 
       if (updateIssueDto.assignedTo && updateIssueDto.assignedTo !== issue.assignedTo) {
-        this.logger.debug(`Verifying new assignee: ${updateIssueDto.assignedTo}`);
         const isValidUser = await this.verifyUser(updateIssueDto.assignedTo);
         if (!isValidUser) {
           throw new RpcException({
@@ -200,7 +200,6 @@ export class issuesService {
   }
 
   private async verifyUser(userId: string): Promise<User> {
-    console.log('userId', userId)
     return await firstValueFrom(
       this.client.send('auth.find.user.by.id', userId).pipe(
         catchError((error) => {
@@ -400,7 +399,6 @@ export class issuesService {
         }
       });
 
-      this.logger.debug(`Se encontraron ${issues.length} issues para la épica ${epicId}`);
       
       return issues;
     } catch (error) {
@@ -426,7 +424,6 @@ export class issuesService {
    async updateIssueStatus(id: string, newStatus: string): Promise<Issue> {
     try {
       const issue = await this.findOne(id);
-      console.log(newStatus);
       const validStatuses = ['to-do', 'in-progress', 'review', 'resolved', 'closed'];
       if (!validStatuses.includes(newStatus)) {
         throw new RpcException({
