@@ -1,9 +1,9 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Issue } from 'src/issues/entities/issue.entity';
-import { MetricsService } from 'src/metrics/metrics.service';
-import { Project } from 'src/projects/entities/project.entity';
+import { Issue } from '../issues/entities/issue.entity';
+import { MetricsService } from '../metrics/metrics.service';
+import { Project } from '../projects/entities/project.entity';
 import { Repository } from 'typeorm';
 import { CreateSprintBacklogDto } from './dto/create-sprint-backlog.dto';
 import { CreateSprintDto } from './dto/create-sprint.dto';

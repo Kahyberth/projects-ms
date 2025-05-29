@@ -1,5 +1,4 @@
-import { Issue } from 'src/issues/entities/issue.entity';
-import { Project } from 'src/projects/entities/project.entity';
+import { Project } from '../../projects/entities/project.entity';
 import {
   Column,
   Entity,
@@ -48,6 +47,6 @@ export class Sprint {
   @OneToMany(() => SprintLogging, (sprint_logging) => sprint_logging.sprint)
   logging: SprintLogging[];
 
-  @OneToMany(() => Issue, (issue) => issue.sprint)
-  issues: Issue[];
+  @OneToMany('Issue', 'sprint')
+  issues: any[];
 }

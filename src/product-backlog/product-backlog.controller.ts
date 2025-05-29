@@ -1,8 +1,8 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-import { CreateIssueDto } from 'src/issues/dto/create-issue.dto';
-import { UpdateIssueDto } from 'src/issues/dto/update-issue.dto';
-import { Issue } from 'src/issues/entities/issue.entity';
+import { CreateIssueDto } from '../issues/dto/create-issue.dto';
+import { UpdateIssueDto } from '../issues/dto/update-issue.dto';
+import { Issue } from '../issues/entities/issue.entity';
 import { ProductBacklog } from './entities/product-backlog.entity';
 import { ProductBacklogService } from './product-backlog.service';
 

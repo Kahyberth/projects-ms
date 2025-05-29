@@ -1,5 +1,4 @@
-import { Issue } from 'src/issues/entities/issue.entity';
-import { Project } from 'src/projects/entities/project.entity';
+import { Project } from '../../projects/entities/project.entity';
 import {
   Column,
   Entity,
@@ -17,8 +16,8 @@ export class SprintBacklog {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   assigment_date: Date;
 
-  @OneToMany(() => Issue, (issue) => issue.sprint_backlog)
-  issues: Issue[];
+  @OneToMany('Issue', 'sprint_backlog')
+  issues: any[];
 
   @ManyToOne(() => Sprint, (sprint) => sprint.sprint_backlog)
   sprint: Sprint;

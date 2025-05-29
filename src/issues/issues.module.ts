@@ -6,10 +6,10 @@ import { Comments } from './entities/comments.entity';
 import { Epic } from './entities/epic.entity';
 import { Issue } from './entities/issue.entity';
 import { ClientsModule, Transport } from '@nestjs/microservices';
-import { envs } from 'src/config/envs';
+import { envs } from '../config/envs';
 import { EpicsService } from './epics.service';
 import { EpicsController } from './epics.controller';
-import { Project } from 'src/projects/entities/project.entity';
+import { Project } from '../projects/entities/project.entity';
 import { ProductBacklog } from '../product-backlog/entities/product-backlog.entity';
 
 @Module({

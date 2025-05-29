@@ -1,4 +1,4 @@
-import { Issue } from 'src/issues/entities/issue.entity';
+import { Issue } from '../../issues/entities/issue.entity';
 import {
   Column,
   CreateDateColumn,
