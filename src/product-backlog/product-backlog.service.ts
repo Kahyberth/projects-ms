@@ -51,8 +51,10 @@ export class ProductBacklogService {
       });
     }
 
+    console.log(epicId);
+
     let epic: Epic | null = null;
-    
+
     if (epicId) {
       epic = await this.epicRepository.findOne({
         where: { id: epicId },
@@ -65,6 +67,8 @@ export class ProductBacklogService {
         });
       }
     }
+
+    console.log("Epic", epic);
 
     const issue = this.issueRepository.create({
       ...createIssueDto,

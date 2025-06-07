@@ -55,6 +55,11 @@ export class ProjectsController {
   removeMember(@Payload() payload: { projectId: string, userId: string }) {
     return this.projectsService.removeMemberFromProject(payload.projectId, payload.userId);
   }
+
+  @MessagePattern('projects.get.projects.by.team')
+  getProjectsByTeam(@Payload() teamId: string) {
+    return this.projectsService.getProjectsByTeam(teamId);
+  }
   
   @MessagePattern('projects.ping')
   ping() {

@@ -458,41 +458,23 @@ export class ProjectsService {
     return project;
   }
 
-  // /**
-  //  * @author Kahyberth
-  //  * @param userId
-  //  * @param page
-  //  * @param limit
-  //  * @description It is responsible for getting all the projects where the user is a member
-  //  * @returns Promise<Project[]>
-  //  */
-  // async getAllProjectsByUser(
-  //   userId: string,
-  //   page: number = 1,
-  //   limit: number = 10,
-  // ): Promise<Project[]> {
-  //   const user = await this.findUserById(userId);
+  /**
+   * @author Kevin
+   * @description Obtiene los proyectos de un equipo
+   * @param teamId
+   * @returns Promise<Project[]>
+   */
+ async getProjectsByTeam(teamId: string): Promise<Project[]> {
+  const projects = await this.projectRepository.find({
+    where: { team_id: teamId, is_available: true },
+    relations: ['members', 'backlog', 'sprint'],
+  });
+  return projects;
+ }
 
-  //   if (!user) {
-  //     throw new RpcException('User not found');
-  //   }
 
-  //   try {
-  //     const projects = await this.getAllProjects(page, limit);
 
-  //     const projectsWithUsers = projects.data.map((project) => {
-  //       project.members = project.members.filter(
-  //         (member) => member.user_id === userId,
-  //       );  // ---> []
-  //       return project;
-  //     });
 
-  //     return projectsWithUsers;
-  //   } catch (error) {
-  //     this.logger.error('Error getting projects by user', error.stack);
-  //     throw error;
-  //   }
-  // }
 
   async getAllProjectsByUser(
     userId: string,

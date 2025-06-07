@@ -7,6 +7,7 @@ import { Members } from './entities/members.entity';
 import { Project } from './entities/project.entity';
 import { ProjectsController } from './projects.controller';
 import { ProjectsService } from './projects.service';
+import { envs } from 'src/config/envs';
 @Module({
   controllers: [ProjectsController],
   providers: [ProjectsService, SendInvitationService],
@@ -17,7 +18,7 @@ import { ProjectsService } from './projects.service';
         name: 'NATS_SERVICE',
         transport: Transport.NATS,
         options: {
-          servers: ['nats://localhost:4222'],
+          servers: envs.NATS_SERVERS,
         },
       },
     ]),
