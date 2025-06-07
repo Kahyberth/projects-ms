@@ -9,6 +9,7 @@ import { EntityManager, Repository } from 'typeorm';
 import { ProductBacklog } from './entities/product-backlog.entity';
 import { SprintBacklog } from '../sprint-backlog/entities/sprint.backlog.entity';
 import { issuesService } from '../issues/issues.service';
+import { Epic } from '../issues/entities/epic.entity';
 
 @Injectable()
 export class ProductBacklogService {
@@ -25,6 +26,8 @@ export class ProductBacklogService {
     private readonly projectRepository: Repository<Project>,
     @InjectRepository(SprintBacklog)
     private readonly sprintBacklogRepository: Repository<SprintBacklog>,
+    @InjectRepository(Epic)
+    private readonly epicRepository: Repository<Epic>,
   ) {}
 
   /**
@@ -35,6 +38,7 @@ export class ProductBacklogService {
   async addIssueToBacklog(
     createIssueDto: CreateIssueDto,
     productBacklogId: string,
+    epicId?: string,
   ): Promise<Issue> {
     const productBacklog = await this.productBacklogRepository.findOne({
       where: { id: productBacklogId },
@@ -47,6 +51,21 @@ export class ProductBacklogService {
       });
     }
 
+    let epic: Epic | null = null;
+    
+    if (epicId) {
+      epic = await this.epicRepository.findOne({
+        where: { id: epicId },
+      });
+
+      if (!epic) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: 'Epic no encontrada',
+        });
+      }
+    }
+
     const issue = this.issueRepository.create({
       ...createIssueDto,
       status: 'to-do',
@@ -54,6 +73,7 @@ export class ProductBacklogService {
       in_sprint: false,
       product_backlog: productBacklog,
       code: await this.generateIssueCode(productBacklogId),
+      epic: epic,
     });
 
     await this.issueRepository.save(issue);

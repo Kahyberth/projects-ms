@@ -56,5 +56,8 @@ export class ProjectsController {
     return this.projectsService.removeMemberFromProject(payload.projectId, payload.userId);
   }
   
-
+  @MessagePattern('projects.ping')
+  ping() {
+    return 'pong';
+  }
 }
