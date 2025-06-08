@@ -7,7 +7,7 @@ import { Members } from './entities/members.entity';
 import { Project } from './entities/project.entity';
 import { ProjectsController } from './projects.controller';
 import { ProjectsService } from './projects.service';
-import { envs } from 'src/config/envs';
+import { envs } from '../config/envs';
 @Module({
   controllers: [ProjectsController],
   providers: [ProjectsService, SendInvitationService],
