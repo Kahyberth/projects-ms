@@ -32,13 +32,11 @@ export class ProductBacklogController {
     payload: {
       createIssueDto: CreateIssueDto;
       productBacklogId: string;
-      epicId?: string;
     },
   ): Promise<Issue> {
     return this.productBacklogService.addIssueToBacklog(
       payload.createIssueDto,
       payload.productBacklogId,
-      payload.epicId,
     );
   }
 

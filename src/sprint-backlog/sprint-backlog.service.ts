@@ -242,6 +242,7 @@ export class SprintBacklogService {
       .createQueryBuilder('issue')
       .innerJoin('issue.sprint_backlog', 'sprint_backlog')
       .innerJoin('sprint_backlog.sprint', 'sprint')
+      .leftJoinAndSelect('issue.epic', 'epic')
       .where('sprint.id = :sprintId', { sprintId })
       .andWhere('issue.isDeleted = :isDeleted', { isDeleted: false });
 
@@ -262,6 +263,7 @@ export class SprintBacklogService {
     }
 
     const issues = await query.getMany();
+    console.log("issues", issues);
 
     return { issues, total };
   }
@@ -693,7 +695,10 @@ export class SprintBacklogService {
   async getProjectSprints(projectId: string) {
     try {
       const sprints = await this.sprintRepository.find({
-        where: { project: { id: projectId } },
+        where: {
+          project: { id: projectId },
+          isFinished: false
+        },
         relations: ['project'],
       });
 
@@ -704,7 +709,6 @@ export class SprintBacklogService {
         });
       }
 
-      // Obtener las issues para cada sprint
       const sprintsWithIssues = await Promise.all(
         sprints.map(async (sprint) => {
           const { issues } = await this.getSprintBacklogIssues(sprint.id);

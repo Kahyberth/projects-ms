@@ -41,6 +41,12 @@ export class issuesController {
     return this.issuesService.getIssuesByEpic(epicId);
   }
 
+  @MessagePattern('issues.by.project')
+  async getIssuesByProject(@Payload() projectId: string) {
+    console.log("Fetching issues by project:", projectId);
+    return this.issuesService.getIssuesByProject(projectId);
+  }
+
   @MessagePattern('issues.get.comments')
   async getCommentsByIssue(@Payload() issueId: string) {
     return this.issuesService.getCommentsByIssue(issueId);

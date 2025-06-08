@@ -2,6 +2,7 @@ import { Controller } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { InviteMemberDto } from './dto/invite-member.dto';
+import { RemoveMemberDto } from './dto/remove-member.dto';
 
 @Controller()
 export class ProjectsController {
@@ -16,6 +17,11 @@ export class ProjectsController {
   updateProject(@Payload() data: any) {
     const { id, ...dto } = data;
     return this.projectsService.updateProject(id, dto);
+  }
+
+  @MessagePattern('projects.delete.project')
+  deleteProject(@Payload() id: string) {
+    return this.projectsService.deleteProject(id);
   }
 
   @MessagePattern('projects.findAll.project')
@@ -52,7 +58,7 @@ export class ProjectsController {
   }
   
   @MessagePattern('projects.remove.member')
-  removeMember(@Payload() payload: { projectId: string, userId: string }) {
+  removeMember(@Payload() payload: RemoveMemberDto) {
     return this.projectsService.removeMemberFromProject(payload.projectId, payload.userId);
   }
 

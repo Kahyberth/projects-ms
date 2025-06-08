@@ -413,6 +413,66 @@ export class issuesService {
     }
   }
 
+  async getIssuesByProject(projectId: string): Promise<Issue[]> {
+    try {
+      const project = await this.projectRepository.findOne({
+        where: { id: projectId },
+        relations: ['backlog']
+      });
+
+      if (!project) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: `Project with ID ${projectId} not found`,
+        });
+      }
+      const allIssues: Issue[] = [];
+
+      // 1. Get issues from project backlog
+      if (project.backlog) {
+        const backlogIssues = await this.issueRepository
+          .createQueryBuilder('issue')
+          .leftJoinAndSelect('issue.product_backlog', 'product_backlog')
+          .leftJoinAndSelect('issue.epic', 'epic')
+          .where('product_backlog.id = :backlogId', { backlogId: project.backlog.id })
+          .andWhere('issue.isDeleted = :isDeleted', { isDeleted: false })
+          .getMany();
+        
+        allIssues.push(...backlogIssues);
+      }
+
+      // 2. Get issues from project sprints
+      const sprintIssues = await this.issueRepository
+        .createQueryBuilder('issue')
+        .leftJoinAndSelect('issue.sprint', 'sprint')
+        .leftJoinAndSelect('issue.epic', 'epic')
+        .where('sprint.project = :projectId', { projectId })
+        .andWhere('issue.isDeleted = :isDeleted', { isDeleted: false })
+        .getMany();
+
+      allIssues.push(...sprintIssues);
+
+      const uniqueIssues = allIssues.filter((issue, index, self) => 
+        index === self.findIndex(i => i.id === issue.id)
+      );
+
+      uniqueIssues.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+      this.logger.debug(`Found ${uniqueIssues.length} issues for project ${projectId}`);
+      return uniqueIssues;
+    } catch (error) {
+      this.logger.error(`Error al obtener issues del proyecto ${projectId}:`, error.stack);
+      if (error instanceof RpcException) {
+      throw error;
+      }
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: `Error al obtener los issues del proyecto: ${error.message}`,
+      });
+    }
+  }
+
+
 
 
    /**

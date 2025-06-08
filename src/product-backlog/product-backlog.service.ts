@@ -38,38 +38,33 @@ export class ProductBacklogService {
   async addIssueToBacklog(
     createIssueDto: CreateIssueDto,
     productBacklogId: string,
-    epicId?: string,
   ): Promise<Issue> {
     const productBacklog = await this.productBacklogRepository.findOne({
       where: { id: productBacklogId },
     });
-
+  
     if (!productBacklog) {
       throw new RpcException({
         status: HttpStatus.NOT_FOUND,
-        message: 'Product backlog no encontrado',
+        message: 'Product backlog not found',
       });
     }
 
-    console.log(epicId);
 
     let epic: Epic | null = null;
-
-    if (epicId) {
+    if (createIssueDto.epicId) {
+      
       epic = await this.epicRepository.findOne({
-        where: { id: epicId },
+        where: { id: createIssueDto.epicId },
       });
 
       if (!epic) {
         throw new RpcException({
           status: HttpStatus.NOT_FOUND,
-          message: 'Epic no encontrada',
+          message: 'Epic not found',
         });
       }
     }
-
-    console.log("Epic", epic);
-
     const issue = this.issueRepository.create({
       ...createIssueDto,
       status: 'to-do',
@@ -188,14 +183,17 @@ export class ProductBacklogService {
     const query = this.issueRepository
       .createQueryBuilder('issue')
       .innerJoin('issue.product_backlog', 'backlog')
+      .leftJoinAndSelect('issue.epic', 'epic')
       .where('backlog.id = :backlogId', { backlogId })
       .andWhere('issue.isDeleted = :isDeleted', { isDeleted: false });
-
+  
     if (filters?.status) {
       query.andWhere('issue.status = :status', { status: filters.status });
     }
-
-    return query.orderBy('issue.story_points', 'DESC').getMany();
+    
+    const issues = await query.orderBy('issue.story_points', 'DESC').getMany();
+    console.log("issues with epic", issues);
+    return issues;
   }
 
   
@@ -366,42 +364,65 @@ export class ProductBacklogService {
   ): Promise<{ total: number; completed: number; progress: number }> {
     
     try {
+      // Verificamos que el proyecto exista
       const project = await this.projectRepository.findOne({
         where: { id: projectId },
-        relations: ['backlog'],
+        relations: ['backlog']
       });
 
-      if (!project || !project.backlog) {
+      if (!project) {
         throw new RpcException({
           status: HttpStatus.NOT_FOUND,
-          message: 'Proyecto o backlog no encontrado',
+          message: 'Proyecto no encontrado',
         });
       }
 
-      const backlogId = project.backlog.id;
       
-      const totalCount = await this.issueRepository
-        .createQueryBuilder('issue')
-        .innerJoin('issue.product_backlog', 'backlog')
-        .where('backlog.id = :backlogId', { backlogId })
-        .andWhere('issue.isDeleted = :isDeleted', { isDeleted: false })
-        .getCount();
+      // 1. Obtener issues del backlog del proyecto
+      let allIssues: Issue[] = [];
       
-      const completedCount = await this.issueRepository
-        .createQueryBuilder('issue')
-        .innerJoin('issue.product_backlog', 'backlog')
-        .where('backlog.id = :backlogId', { backlogId })
-        .andWhere('issue.isDeleted = :isDeleted', { isDeleted: false })
-        .andWhere('issue.status IN (:...completedStatuses)', { 
-          completedStatuses: ['done', 'closed'] 
-        })
-        .getCount();
+      if (project.backlog) {
+        const backlogIssues = await this.issueRepository.find({
+          where: {
+            product_backlog: { id: project.backlog.id },
+            isDeleted: false
+          }
+        });
+        allIssues = [...backlogIssues];
+      }
+      
+      // 2. Obtener issues de los sprints del proyecto
+      const sprints = await this.sprintRepository.find({
+        where: { project: { id: projectId } }
+      });
+      
+      for (const sprint of sprints) {
+        const sprintIssues = await this.issueRepository.find({
+          where: {
+            sprint: { id: sprint.id },
+            isDeleted: false
+          }
+        });
+        
+        // Agregamos solo issues que no están ya en la lista (para evitar duplicados)
+        for (const issue of sprintIssues) {
+          if (!allIssues.some(existingIssue => existingIssue.id === issue.id)) {
+            allIssues.push(issue);
+          }
+        }
+      }
+      
+      // Calculamos estadísticas basadas en las issues recopiladas
+      const totalCount = allIssues.length;
+      const completedCount = allIssues.filter(
+        issue => issue.status === 'done' || issue.status === 'closed'
+      ).length;
       
       const progress = totalCount > 0 
         ? Math.round((completedCount / totalCount) * 100) 
         : 0;
       
-      console.log(`Backend: Project ${projectId} stats - Total: ${totalCount}, Completed: ${completedCount}, Progress: ${progress}%`);
+      console.log(`Project ${projectId} stats - Total: ${totalCount}, Completed: ${completedCount}, Progress: ${progress}%`);
       
       return {
         total: totalCount,
