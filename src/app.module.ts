@@ -19,6 +19,7 @@ import { SprintBacklog } from './sprint-backlog/entities/sprint.backlog.entity';
 import { Sprint } from './sprint-backlog/entities/sprint.entity';
 import { SprintLogging } from './sprint-backlog/entities/sprint.logging.entity';
 import { SprintBacklogModule } from './sprint-backlog/sprint-backlog.module';
+import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
 
 @Module({
   controllers: [],
@@ -57,6 +58,7 @@ import { SprintBacklogModule } from './sprint-backlog/sprint-backlog.module';
     SprintBacklogModule,
     issuesModule,
     MetricsModule,
+    AiAssistantModule,
   ],
 })
 export class AppModule {}

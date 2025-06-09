@@ -13,6 +13,7 @@ interface EnvVars {
   MAIL_USERNAME: string;
   MAIL_PASSWORD: string;
   MAIL_HOST: string;
+  DEEPSEEK_API_KEY: string;
 }
 
 const envsSchema = joi
@@ -27,6 +28,7 @@ const envsSchema = joi
     MAIL_USERNAME: joi.string().required(),
     MAIL_PASSWORD: joi.string().required(),
     MAIL_HOST: joi.string().required(),
+    DEEPSEEK_API_KEY: joi.string().required(),
   })
   .unknown(true);
 
@@ -51,4 +53,5 @@ export const envs = {
   MAIL_USERNAME: envVars.MAIL_USERNAME,
   MAIL_PASSWORD: envVars.MAIL_PASSWORD,
   MAIL_HOST: envVars.MAIL_HOST,
+  DEEPSEEK_API_KEY: envVars.DEEPSEEK_API_KEY,
 };
