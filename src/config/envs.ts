@@ -9,7 +9,7 @@ interface EnvVars {
   DB_PORT: number;
   DB_USERNAME: string;
   DB_PASSWORD: string;
-  DB_NAME: string;
+  DB_DATABASE: string;
   MAIL_USERNAME: string;
   MAIL_PASSWORD: string;
   MAIL_HOST: string;
@@ -24,7 +24,7 @@ const envsSchema = joi
     DB_PORT: joi.number().required(),
     DB_USERNAME: joi.string().required(),
     DB_PASSWORD: joi.string().required(),
-    DB_NAME: joi.string().required(),
+    DB_DATABASE: joi.string().required(),
     MAIL_USERNAME: joi.string().required(),
     MAIL_PASSWORD: joi.string().required(),
     MAIL_HOST: joi.string().required(),
@@ -49,7 +49,7 @@ export const envs = {
   DB_PORT: envVars.DB_PORT,
   DB_USERNAME: envVars.DB_USERNAME,
   DB_PASSWORD: envVars.DB_PASSWORD,
-  DB_NAME: envVars.DB_NAME,
+  DB_DATABASE: envVars.DB_DATABASE,
   MAIL_USERNAME: envVars.MAIL_USERNAME,
   MAIL_PASSWORD: envVars.MAIL_PASSWORD,
   MAIL_HOST: envVars.MAIL_HOST,

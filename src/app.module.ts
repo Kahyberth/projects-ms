@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
 import { envs } from './config/envs';
 import { Comments } from './issues/entities/comments.entity';
 import { Epic } from './issues/entities/epic.entity';
@@ -19,7 +20,6 @@ import { SprintBacklog } from './sprint-backlog/entities/sprint.backlog.entity';
 import { Sprint } from './sprint-backlog/entities/sprint.entity';
 import { SprintLogging } from './sprint-backlog/entities/sprint.logging.entity';
 import { SprintBacklogModule } from './sprint-backlog/sprint-backlog.module';
-import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
 
 @Module({
   controllers: [],
@@ -32,7 +32,7 @@ import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
       port: envs.DB_PORT,
       username: envs.DB_USERNAME,
       password: envs.DB_PASSWORD,
-      database: envs.DB_NAME,
+      database: envs.DB_DATABASE,
       entities: [
         Project,
         Comments,
@@ -47,11 +47,6 @@ import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
         ProjectMetric,
         IssueMetric,
       ],
-      extra: {
-        ssl: {
-          rejectUnauthorized: false,
-        },
-      },
       synchronize: true,
     }),
     ProductBacklogModule,

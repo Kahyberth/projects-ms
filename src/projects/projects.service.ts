@@ -2,16 +2,16 @@ import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
 import { catchError, firstValueFrom } from 'rxjs';
+import { DataSource, Repository } from 'typeorm';
 import { Team } from '../interfaces/team.interface';
 import { User } from '../interfaces/user.interface';
 import { ProductBacklog } from '../product-backlog/entities/product-backlog.entity';
 import { SendInvitationService } from '../send-invitation/send-invitation.service';
-import { DataSource, Repository } from 'typeorm';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { InviteMemberDto } from './dto/invite-member.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { Members } from './entities/members.entity';
 import { Project } from './entities/project.entity';
-import { InviteMemberDto } from './dto/invite-member.dto';
 @Injectable()
 export class ProjectsService {
   private readonly logger = new Logger(ProjectsService.name);
@@ -347,7 +347,7 @@ export class ProjectsService {
       },
     });
 
-    if (!data) {
+    if (!data || data.length === 0) {
       throw new RpcException('Project not found or unavailable');
     }
 
