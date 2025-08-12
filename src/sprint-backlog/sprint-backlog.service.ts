@@ -26,7 +26,7 @@ export class SprintBacklogService {
     @InjectRepository(IssueTransition)
     private readonly issueTransitionRepository: Repository<IssueTransition>,
     private readonly metricsService: MetricsService,
-  ) {}
+  ) { }
 
   /**
    * @description: Crear un sprint backlog
@@ -92,7 +92,7 @@ export class SprintBacklogService {
   }
 
   async createSprint(createSprintDto: CreateSprintDto): Promise<Sprint> {
-    const { name, goal, projectId } = createSprintDto;
+    const { name, goal, projectId, startDate, endDate } = createSprintDto;
     const queryRunner =
       this.sprintRepository.manager.connection.createQueryRunner();
 
@@ -117,6 +117,16 @@ export class SprintBacklogService {
       sprint.goal = goal;
       sprint.project = project;
 
+      // Establecer fechas si se proporcionan
+      if (startDate) {
+        sprint.startedAt = new Date(startDate);
+        sprint.isStarted = true;
+      }
+
+      if (endDate) {
+        sprint.fnishedAt = new Date(endDate);
+      }
+
       await queryRunner.manager.save(Sprint, sprint);
 
       await this.createSprintBacklog(
@@ -140,6 +150,81 @@ export class SprintBacklogService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  async updateSprint(sprintId: string, updateData: any): Promise<Sprint> {
+    console.log('Updating sprint with ID:', sprintId);
+    console.log('Update data received:', updateData);
+
+    const sprint = await this.sprintRepository.findOne({
+      where: { id: sprintId },
+      relations: ['project', 'issues'],
+    });
+
+    if (!sprint) {
+      throw new RpcException({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Sprint no encontrado',
+      });
+    }
+
+    console.log('Found sprint:', sprint);
+
+    // Validar y actualizar campos si se proporcionan
+    if (updateData.name !== undefined && typeof updateData.name === 'string') {
+      sprint.name = updateData.name;
+      console.log('Updated name to:', updateData.name);
+    }
+
+    if (updateData.goal !== undefined && typeof updateData.goal === 'string') {
+      sprint.goal = updateData.goal;
+      console.log('Updated goal to:', updateData.goal);
+    }
+
+    if (updateData.startDate !== undefined) {
+      console.log('Processing startDate:', updateData.startDate);
+      if (updateData.startDate && typeof updateData.startDate === 'string') {
+        try {
+          const startDate = new Date(updateData.startDate);
+          if (!isNaN(startDate.getTime())) {
+            console.log('Parsed startDate:', startDate);
+            sprint.startedAt = startDate as any;
+            sprint.isStarted = true;
+          } else {
+            console.error('Invalid startDate format:', updateData.startDate);
+          }
+        } catch (error) {
+          console.error('Error parsing startDate:', error);
+        }
+      } else {
+        sprint.startedAt = null as any;
+        sprint.isStarted = false;
+      }
+    }
+
+    if (updateData.endDate !== undefined) {
+      console.log('Processing endDate:', updateData.endDate);
+      if (updateData.endDate && typeof updateData.endDate === 'string') {
+        try {
+          const endDate = new Date(updateData.endDate);
+          if (!isNaN(endDate.getTime())) {
+            console.log('Parsed endDate:', endDate);
+            sprint.fnishedAt = endDate as any;
+          } else {
+            console.error('Invalid endDate format:', updateData.endDate);
+          }
+        } catch (error) {
+          console.error('Error parsing endDate:', error);
+        }
+      } else {
+        sprint.fnishedAt = null as any;
+      }
+    }
+
+    console.log('Saving sprint with updated data:', sprint);
+    const updatedSprint = await this.sprintRepository.save(sprint);
+    console.log('Sprint saved successfully:', updatedSprint);
+    return updatedSprint;
   }
 
   /**
@@ -319,7 +404,7 @@ export class SprintBacklogService {
       const currentSprintDuration = this.calculateSprintDuration(currentSprint);
       newSprint.fnishedAt = new Date(
         newSprint.startedAt.getTime() +
-          currentSprintDuration * 24 * 60 * 60 * 1000,
+        currentSprintDuration * 24 * 60 * 60 * 1000,
       );
       await queryRunner.manager.save(Sprint, newSprint);
 
@@ -456,7 +541,7 @@ export class SprintBacklogService {
         await queryRunner.manager.save(Issue, issue);
       }
 
-      // 4. Actualizar el sprint backlog
+      
       const sprintBacklog = await this.sprintBacklogRepository.findOne({
         where: { sprint: { id: sprintId } },
       });
@@ -470,7 +555,7 @@ export class SprintBacklogService {
 
       await queryRunner.commitTransaction();
 
-      // 5. Obtener el sprint actualizado con todas sus historias
+      
       const updatedSprint = await this.sprintRepository.findOne({
         where: { id: sprintId },
         relations: ['issues'],
@@ -556,13 +641,11 @@ export class SprintBacklogService {
       });
     }
 
-    // Calcular todas las métricas relevantes
     const velocityMetric =
       await this.metricsService.calculateSprintVelocity(sprint);
     const completionRateMetric =
       await this.metricsService.calculateSprintCompletionRate(sprint);
 
-    // Si el sprint está completado, calcular la duración
     let durationValue = 0;
     if (sprint.isFinished && sprint.startedAt && sprint.fnishedAt) {
       const duration = this.calculateSprintDuration(sprint);
@@ -575,7 +658,6 @@ export class SprintBacklogService {
       durationValue = durationMetric.value;
     }
 
-    // Estadísticas de issues por estado
     const issuesByStatus: Record<string, number> = {
       'to-do': 0,
       'in-progress': 0,
@@ -689,24 +771,37 @@ export class SprintBacklogService {
   /**
    * Obtiene todos los sprints de un proyecto
    * @param projectId ID del proyecto
+   * @param includeCompleted Incluir sprints completados
    * @author Kevin
    * @returns Lista de sprints
    */
-  async getProjectSprints(projectId: string) {
+  async getProjectSprints(projectId: string, includeCompleted: boolean = true) {
     try {
+      console.log(`Getting sprints for project ${projectId}, includeCompleted: ${includeCompleted}`);
+      
+      const whereCondition: any = {
+        project: { id: projectId }
+      };
+
+      if (!includeCompleted) {
+        whereCondition.isFinished = false;
+      }
+
+      console.log('Where condition:', whereCondition);
+
       const sprints = await this.sprintRepository.find({
-        where: {
-          project: { id: projectId },
-          isFinished: false
-        },
+        where: whereCondition,
         relations: ['project'],
+        order: {
+          startedAt: 'DESC' 
+        }
       });
 
-      if (!sprints) {
-        throw new RpcException({
-          status: HttpStatus.NOT_FOUND,
-          message: 'No se encontraron sprints para este proyecto',
-        });
+      console.log(`Found ${sprints.length} sprints for project ${projectId}`);
+
+      if (!sprints || sprints.length === 0) {
+        console.log(`No sprints found for project ${projectId}, returning empty array`);
+        return [];
       }
 
       const sprintsWithIssues = await Promise.all(
@@ -715,19 +810,153 @@ export class SprintBacklogService {
           return {
             ...sprint,
             issues,
-            status: sprint.isStarted ? 'active' : 'inactive'
+            status: sprint.isFinished ? 'completed' : (sprint.isStarted ? 'active' : 'inactive')
           };
         })
       );
 
       return sprintsWithIssues;
     } catch (error) {
+      console.error(`Error getting sprints for project ${projectId}:`, error);
       if (error instanceof RpcException) {
         throw error;
       }
       throw new RpcException({
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         message: 'Error al obtener los sprints del proyecto',
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Obtiene datos de burndown para un sprint
+   * @param sprintId ID del sprint
+   * @returns Datos de burndown con días y story points restantes
+   */
+  async getSprintBurndownData(sprintId: string) {
+    try {
+      const sprint = await this.sprintRepository.findOne({
+        where: { id: sprintId },
+        relations: ['project'],
+      });
+
+      if (!sprint) {
+        throw new RpcException({
+          status: HttpStatus.NOT_FOUND,
+          message: 'Sprint no encontrado',
+        });
+      }
+
+
+      const { issues } = await this.getSprintBacklogIssues(sprintId);
+
+      const startDate = new Date(sprint.startedAt || new Date());
+      let endDate = new Date(sprint.fnishedAt || new Date());
+
+      if (!sprint.fnishedAt) {
+        endDate = new Date();
+        endDate.setDate(endDate.getDate() + 7);
+      } else {
+        endDate = new Date(sprint.fnishedAt);
+      }
+
+
+      if (startDate.getTime() === endDate.getTime()) {
+        endDate.setDate(endDate.getDate() + 7);
+      }
+
+      console.log(`Burndown calculation for sprint ${sprint.name}:`);
+      console.log(`Sprint ID: ${sprint.id}`);
+      console.log(`Sprint status: ${sprint.isFinished ? 'finished' : 'active'}`);
+      console.log(`Start date: ${startDate.toISOString()}`);
+      console.log(`End date: ${endDate.toISOString()}`);
+      console.log(`Sprint finished: ${sprint.isFinished}`);
+      console.log(`Sprint finishedAt: ${sprint.fnishedAt}`);
+      console.log(`Issues count: ${issues.length}`);
+
+      const totalStoryPoints = issues.reduce((sum: number, issue: any) => sum + (issue.story_points || 0), 0);
+
+      const days: Array<{ date: string; remaining: number; isWeekend: boolean; completedToday: number; completedIssues: any[] }> = [];
+      const currentDate = new Date(startDate);
+
+      while (currentDate <= endDate) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
+
+
+        const completedIssues = issues.filter((issue: any) => {
+          const resolvedAt = issue.resolvedAt ? new Date(issue.resolvedAt) : null;
+          const updatedAt = issue.updatedAt ? new Date(issue.updatedAt) : null;
+
+
+          const completionDate = resolvedAt || updatedAt;
+          return completionDate &&
+            completionDate <= currentDate &&
+            (issue.status === 'done' || issue.status === 'closed');
+        });
+
+        const completedPoints = completedIssues.reduce((sum: number, issue: any) => sum + (issue.story_points || 0), 0);
+        const remaining = Math.max(0, totalStoryPoints - completedPoints);
+
+        const completedToday = completedIssues.filter((issue: any) => {
+          const resolvedAt = issue.resolvedAt ? new Date(issue.resolvedAt) : null;
+          const updatedAt = issue.updatedAt ? new Date(issue.updatedAt) : null;
+          const completionDate = resolvedAt || updatedAt;
+          return completionDate &&
+            completionDate.toDateString() === currentDate.toDateString() &&
+            (issue.status === 'done' || issue.status === 'closed');
+        });
+
+        const completedTodayPoints = completedToday.reduce((sum: number, issue: any) => sum + (issue.story_points || 0), 0);
+
+        days.push({
+          date: dateStr,
+          remaining,
+          isWeekend,
+          completedToday: completedTodayPoints,
+          completedIssues: completedToday
+        });
+
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      console.log(`Generated ${days.length} days for burndown chart`);
+      console.log(`Total story points: ${totalStoryPoints}`);
+      console.log(`Days data:`, days.map(d => ({ date: d.date, remaining: d.remaining, isWeekend: d.isWeekend })));
+
+      const completedIssues = issues.filter((issue: any) =>
+        issue.status === 'done' || issue.status === 'closed'
+      );
+
+      const completedIssuesDetails = completedIssues.map((issue: any) => ({
+        id: issue.id,
+        title: issue.title,
+        storyPoints: issue.story_points || 0,
+        status: issue.status,
+        resolvedAt: issue.resolvedAt,
+        updatedAt: issue.updatedAt
+      }));
+
+      return {
+        name: sprint.name,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        days,
+        totalStoryPoints,
+        completedStoryPoints: completedIssues.reduce((sum: number, issue: any) => sum + (issue.story_points || 0), 0),
+        completedIssues: completedIssuesDetails,
+        totalIssues: issues.length,
+        completedIssuesCount: completedIssues.length,
+        sprintStatus: sprint.isFinished ? 'completed' : (sprint.isStarted ? 'active' : 'inactive')
+      };
+    } catch (error) {
+      if (error instanceof RpcException) {
+        throw error;
+      }
+      throw new RpcException({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Error al obtener datos de burndown del sprint',
         error: error.message,
       });
     }

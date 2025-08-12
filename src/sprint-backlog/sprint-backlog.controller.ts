@@ -2,6 +2,7 @@ import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { CreateSprintBacklogDto } from './dto/create-sprint-backlog.dto';
 import { CreateSprintDto } from './dto/create-sprint.dto';
+import { UpdateSprintDto } from './dto/update-sprint.dto';
 import { SprintBacklogService } from './sprint-backlog.service';
 
 @Controller()
@@ -9,13 +10,25 @@ export class SprintBacklogController {
   constructor(private readonly sprintBacklogService: SprintBacklogService) {}
 
   @MessagePattern('sprints.get.project_sprints')
-  async getProjectSprints(@Payload() payload: { projectId: string }) {
-    return this.sprintBacklogService.getProjectSprints(payload.projectId);
+  async getProjectSprints(@Payload() payload: { projectId: string; includeCompleted?: boolean }) {
+    console.log('Projects MS: Received request for project sprints');
+    console.log('Payload:', payload);
+    const result = await this.sprintBacklogService.getProjectSprints(payload.projectId, payload.includeCompleted ?? true);
+    console.log('Projects MS: Returning sprints:', result);
+    return result;
   }
 
   @MessagePattern('sprints.create.sprint')
   async createSprint(@Payload() createSprintDto: CreateSprintDto) {
     return this.sprintBacklogService.createSprint(createSprintDto);
+  }
+
+  @MessagePattern('sprints.update.sprint')
+  async updateSprint(@Payload() payload: any) {
+    console.log('Received sprint update payload:', payload);
+    const { id, ...updateData } = payload;
+    console.log('Extracted update data:', updateData);
+    return this.sprintBacklogService.updateSprint(id, updateData);
   }
 
   @MessagePattern('sprints.create.sprint_backlog')
@@ -68,6 +81,11 @@ export class SprintBacklogController {
       payload.sprintId,
       payload.metricType,
     );
+  }
+
+  @MessagePattern('sprints.get.burndown_data')
+  async getSprintBurndownData(@Payload() payload: { sprintId: string }) {
+    return this.sprintBacklogService.getSprintBurndownData(payload.sprintId);
   }
 
   @MessagePattern('sprints.get.project_metrics')
